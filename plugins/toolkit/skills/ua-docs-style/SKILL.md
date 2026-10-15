@@ -1,52 +1,50 @@
 ---
 name: ua-docs-style
-description: Formatting and style conventions for the Ukrainian engineering documents (*_ua.md and their Confluence ports) of ALL investigations under this Investigation/ folder (Vibration Detection, Box Vibration, Different, future ones). Use whenever creating, editing, or extending these documents — every modification must preserve the academic-article structure, LaTeX math, and the numbering/cross-referencing system described here.
+description: Formatting and style conventions for Ukrainian engineering/research documents written in the style of an academic article (Markdown drafts with LaTeX math and their Confluence ports) — structure, terminology, numbered formulas/figures/tables, cross-referencing, and verified references with DOIs. Use whenever creating, editing, extending, or reviewing such a document (investigation reports, technical notes, method descriptions in Ukrainian), or when the user asks «оформи за стилем», «перевір документ на відповідність стилю», «додай формулу/рисунок/таблицю/джерело». Every modification must preserve the article structure and the numbering/cross-referencing system described here.
 ---
 
 # Ukrainian docs — academic style conventions
 
-Applies to every human-facing Ukrainian document of every investigation under
-`<Investigation>/` — future `*_ua.md` drafts in an investigation's `docs/`
-folder and the documents already ported to Confluence (pages under the
-boomprj space are the source of truth for their content). As of 2026-09-02
-ALL Vibration Detection documents are ported and their md files deleted:
-approach → page 270041089, channel comparison → 270237697, motor RPM
-crosscheck → 269746185 (children of the parent page 269746177, whose
-Confluence title was not renamed on 2026-09-25 and still carries the old
-term).
-Edit such pages via the Atlassian MCP tools (contentFormat html) keeping the
-same structure and conventions, EXCEPT math: Confluence does not render LaTeX,
-so on those pages math is typeset as Unicode/HTML instead — italic variables
+Applies to every human-facing Ukrainian engineering document that is meant to
+be read as a technical article: Markdown drafts (`*_ua.md` or similar) and the
+same documents published to Confluence. When a document exists both as an md
+draft and as a Confluence page, the project decides which is the source of
+truth — ask or check the project's CLAUDE.md/skills; by default a published
+Confluence page wins over a stale draft.
+
+Does NOT apply to internal working notes (`plan.md`-type files), generated
+CLAUDE.md files, or auto-generated result reports.
+
+## Confluence specifics
+
+Edit Confluence pages via the Atlassian MCP tools (contentFormat html) keeping
+the same structure and conventions, EXCEPT math: Confluence does not render
+LaTeX, so there math is typeset as Unicode/HTML instead — italic variables
 (`<em>v</em>`), Unicode superscripts/subscripts (², ₁, ₂, ₖ, ₛ), real symbols
-(−, ·, ≈, √, π), bold letters for vectors (state "вектори позначено жирним").
+(−, ·, ≈, √, π), bold letters for vectors (state «вектори позначено жирним»).
 Displayed formulas sit in a `<blockquote>` with the number as bold `(N)` at the
 line end after `&nbsp;` spacing; the numbering/referencing rules («формула (N)»,
-sequential, every formula cited) still apply. Full porting/publishing mechanics
-(site ids, DOI rules, md→Confluence handover) live in the Investigation-level
-skill `port-investigation-to-confluence`
-(`<Investigation>/.claude/skills/`). Does NOT apply to
-`plan.md`-type internal working notes, generated CLAUDE.md files, or
-`docs/results/` reports.
+sequential, every formula cited) still apply. If the project has its own
+porting/publishing skill (site ids, space keys, md→Confluence handover), follow
+it for the mechanics; this skill covers only style.
 
 ## Document structure
 
 Scientific-article layout, in this order: title (H1) → `## Анотація` →
 numbered sections `## 1. …`, subsections `### N.M. …` → `## Висновки`
 (numbered points) → `## Література` (always the LAST section). No "phases",
-no roadmap/plan sections — the user removed them deliberately; future work is
-at most one sentence in Висновки.
+no roadmap/plan sections; future work is at most one sentence in Висновки.
 
 ## Language and terminology
 
 - Ukrainian, academic register, audience = engineers. Explanations should stay
   accessible: after every formula, say in words what it means.
 - Transliterated anglicisms are allowed ONLY when no established Ukrainian term
-  exists. Known substitutions already enforced: «накладання спектрів» (not
-  «аліасинг»; give "(англ. aliasing)" in parentheses at first mention),
-  «група» (not «кластер»), «продукти взаємної модуляції» (not
-  «інтермодуляційні продукти»), «п'ять найсильніших піків» (not «топ-5»).
-  Accepted borrowings (established terms): гістерезис, трекер, гомодинний,
-  биття, семпл, бін.
+  exists. Known substitutions: «накладання спектрів» (not «аліасинг»; give
+  "(англ. aliasing)" in parentheses at first mention), «група» (not
+  «кластер»), «продукти взаємної модуляції» (not «інтермодуляційні
+  продукти»), «п'ять найсильніших піків» (not «топ-5»). Accepted borrowings
+  (established terms): гістерезис, трекер, гомодинний, биття, семпл, бін.
 - Apostrophe in Ukrainian words: `'` (п'ять, з'являється).
 
 ## Math
@@ -79,20 +77,20 @@ at most one sentence in Висновки.
   condition (what is small compared to what) and the order of the truncation
   error. Where an exact intermediate form already carries the qualitative
   conclusion, show it before the approximation — a result that holds exactly
-  is stronger than one that holds "у наближенні".
+  is stronger than one that holds «у наближенні».
 - The same first-use rule applies to technical terms and abbreviations, per
-  document: AC-енергія, рушій (engine), ФВЧ, EMA, SNR, RMS, ODR, FIFO etc.
-  get a short worded
-  explanation (with the English expansion in parentheses for borrowed
-  abbreviations) the first time they appear — including terms that first
-  appear inside a diagram or table (explain them in the prose right after it).
+  document: e.g. AC-енергія, рушій (engine), ФВЧ, EMA, SNR, RMS, ODR, FIFO
+  get a short worded explanation (with the English expansion in parentheses
+  for borrowed abbreviations) the first time they appear — including terms
+  that first appear inside a diagram or table (explain them in the prose
+  right after it).
 
 ## Figures
 
-- Image files live in `docs/img/<topic>/` (e.g. `img/chan/`), referenced by
-  relative path. Figures that come from scripts must be regenerated by the
-  script, never hand-edited; the generating command is named in the document
-  (e.g. `python py/chan_compare_report.py`).
+- Image files live in an image folder next to the document (e.g.
+  `img/<topic>/`), referenced by relative path. Figures that come from scripts
+  must be regenerated by the script, never hand-edited; the generating command
+  is named in the document (e.g. `python <script>.py`).
 - Every figure: `![Рис. N](relative/path.png)` immediately followed by an
   italic caption line: `*Рис. N. Повний підпис реченням.*`
 - Numbered sequentially per document; every figure referenced in text
@@ -111,10 +109,10 @@ at most one sentence in Висновки.
 - Every entry MUST be cited in the body as `[N]` (or `[N, §X.Y]`) at least
   once; every `[N]` in the body must exist in the list. When adding/removing
   an entry, renumber and update all in-text citations.
-- Prefer authoritative sources: original papers, standard textbooks
-  (Oppenheim & Schafer), IEEE journals, manufacturer datasheets.
-- **Every entry is verified and carries a DOI where one is registered — already
-  in the md draft, not only at the Confluence port.** For EVERY entry
+- Prefer authoritative sources: original papers, standard textbooks,
+  peer-reviewed journals, standards, manufacturer datasheets.
+- **Every entry is verified and carries a DOI where one is registered —
+  already in the md draft, not only at publication.** For EVERY entry
   (papers, book chapters AND books) search Crossref
   (`https://api.crossref.org/works?query.bibliographic=<title+authors>`), then
   confirm the candidate via `https://api.crossref.org/works/<doi>`: title,
@@ -133,18 +131,10 @@ at most one sentence in Висновки.
   itself; if the source text is not at hand (paywalled standard, book not on
   disk), cite without a locator and, where possible, add an accessible
   secondary source that reproduces the fact (e.g. a manufacturer datasheet
-  quoting IEC dimensions).
-- Known results (keep in sync with the list in
-  `port-investigation-to-confluence`). Verified DOIs: Wilson, Taylor, Doherty,
-  Ghaboussi 1973 "Incompatible displacement models"
-  `10.1016/B978-0-12-253250-4.50008-7`; Taylor, Beresford, Wilson 1976
-  `10.1002/nme.1620100602`; Gibson & Ashby "Cellular Solids" 2nd ed. 1997
-  `10.1017/CBO9781139878326`; Schenk & Gärtner 2004 (PARDISO)
-  `10.1016/j.future.2003.07.011`; Gent 1958 (Shore hardness → Young's
-  modulus) `10.5254/1.3542351`. Checked 2026-09-20, NO registered DOI (only
-  reviews have one): Clough & Penzien "Dynamics of Structures"; Steinberg
-  "Vibration Analysis for Electronic Equipment"; IEC 60086-2; ST LIS3DH
-  datasheet (DocID17530 Rev 2, December 2016); Oppenheim & Schafer.
+  quoting a standard's dimensions).
+- If the project keeps a list of already-verified references (DOIs found or
+  confirmed absent), reuse it instead of re-searching, and extend it when a
+  new source is verified.
 
 ## Paragraph/section endings
 
@@ -158,23 +148,21 @@ The only exception is `## Література` itself.
 1. Adding a formula/figure/table in the middle → renumber everything after it
    and update ALL in-text references (grep the document for `\tag{`, `Рис.`,
    `Табл.`, `[N]` patterns to find them).
-2. New figures: extend the generating script in `py/` (or add a new one),
-   regenerate the PNGs, keep captions in sync with what the script draws.
+2. New figures: extend the generating script (or add a new one), regenerate
+   the PNGs, keep captions in sync with what the script draws.
 3. Numbers/claims that come from measurements must match the current outputs
-   of the investigation's pipeline (for Vibration Detection:
-   `docs/results/allrecs/summaries.json`, comparison scripts); rerun the
-   script rather than editing numbers by hand.
-3a. Factual claims about recordings (aircraft, payload, what happened during
-   the vibration episode, sensor mode) must name their source in place: the operator's
-   note file (`readme.txt`, `*.docx`, `*.gdoc`, `config.txt`) with its path
-   relative to the investigation's data root (for Vibration Detection: the
-   AccLogs root) — never an absolute path, never an unsourced
-   assertion. If no operator note exists, say so explicitly and attribute the
-   numbers to our own analysis.
+   of the project's processing pipeline (summary files, comparison scripts);
+   rerun the script rather than editing numbers by hand.
+3a. Factual claims about the measured objects or recordings (what was tested,
+   under which conditions, what happened, device mode) must name their source
+   in place: the operator's note file (`readme.txt`, `*.docx`, `*.gdoc`,
+   `config.txt`, …) with its path relative to the project's data root — never
+   an absolute path, never an unsourced assertion. If no operator note exists,
+   say so explicitly and attribute the numbers to our own analysis.
 4. Cross-links to documents that live in Confluence use the page URL
-   (https://boom-prj.atlassian.net/wiki/spaces/boomprj/pages/<id>) with the
+   (`https://<site>.atlassian.net/wiki/spaces/<space>/pages/<id>`) with the
    document title in «лапки» as the link text, e.g.
-   «див. [«Вибір каналу попередньої обробки…»](…/pages/270237697), розділ 3».
+   «див. [«Назва документа…»](…/pages/<id>), розділ 3».
    Links between md drafts still on disk use plain relative file names,
    never absolute paths.
 5. After editing, verify: all tags sequential; all figures/tables/references
