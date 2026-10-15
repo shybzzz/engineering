@@ -7,8 +7,8 @@
 ```markdown
 ## Мій маркетплейс скілів
 
-Мій особистий маркетплейс: https://github.com/YOUR-GITHUB-USERNAME/my-claude-marketplace
-(локальна копія: ~/my-claude-marketplace, скіли — у plugins/toolkit/skills/).
+Мій особистий маркетплейс: https://github.com/YOUR-GITHUB-USERNAME/engineering
+(локальна копія: ~/engineering, скіли — у plugins/toolkit/skills/).
 
 Коли я кажу «збережи цей скіл у хмарі» (або «збережи в маркетплейс», «зроби з цього скіл»):
 1. Онови/клонуй локальну копію репозиторію.

@@ -9,13 +9,13 @@ description: Зберігає новий або оновлений скіл у �
 
 ## Конфігурація
 
-- MARKETPLACE_REPO: `https://github.com/YOUR-GITHUB-USERNAME/my-claude-marketplace`
-- Локальна копія (якщо є): `~/my-claude-marketplace`
+- MARKETPLACE_REPO: `https://github.com/YOUR-GITHUB-USERNAME/engineering`
+- Локальна копія (якщо є): `~/engineering`
 - Плагін для скілів: `toolkit`
 
 ## Процедура
 
-1. **Знайди репозиторій.** Перевір, чи існує локальна копія (`~/my-claude-marketplace`). Якщо так — `git pull`. Якщо ні — клонуй `MARKETPLACE_REPO` у `~/my-claude-marketplace`. Якщо клонування не вдалося (немає доступу/мережі) — зупинись і скажи користувачу, що саме не вийшло.
+1. **Знайди репозиторій.** Перевір, чи існує локальна копія (`~/engineering`). Якщо так — `git pull`. Якщо ні — клонуй `MARKETPLACE_REPO` у `~/engineering`. Якщо клонування не вдалося (немає доступу/мережі) — зупинись і скажи користувачу, що саме не вийшло.
 
 2. **Сформулюй скіл.** З контексту розмови визнач, що саме треба зберегти: процедуру, знання, конвенції. Запитай у користувача лише те, чого бракує (назва, тригери). Назва — kebab-case, без слів "claude" та "anthropic", до 64 символів.
 
@@ -26,18 +26,18 @@ description: Зберігає новий або оновлений скіл у �
 
 4. **Підніми версію плагіна** у `plugins/toolkit/.claude-plugin/plugin.json` (patch для правок, minor для нового скіла).
 
-5. **Перевір**, якщо доступний CLI: `claude plugin validate ~/my-claude-marketplace`. Якщо CLI немає — перевір вручну: валідний JSON, frontmatter з name/description, name збігається з назвою папки.
+5. **Перевір**, якщо доступний CLI: `claude plugin validate ~/engineering`. Якщо CLI немає — перевір вручну: валідний JSON, frontmatter з name/description, name збігається з назвою папки.
 
 6. **Закоміть і запуш:**
    ```bash
-   cd ~/my-claude-marketplace
+   cd ~/engineering
    git add -A
    git commit -m "Add/update skill: <назва>"
    git push
    ```
    Якщо push відхилено — `git pull --rebase` і повтори. Ніколи не роби force push.
 
-7. **Повідом користувача:** назва скіла, що він робить, і нагадай, що на інших машинах оновлення підтягується через `/plugin marketplace update my-marketplace` (локально зміни активуються після `/reload-plugins` або нової сесії).
+7. **Повідом користувача:** назва скіла, що він робить, і нагадай, що на інших машинах оновлення підтягується через `/plugin marketplace update engineering` (локально зміни активуються після `/reload-plugins` або нової сесії).
 
 ## Оновлення та видалення
 

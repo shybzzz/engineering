@@ -1,11 +1,11 @@
-# My Claude Marketplace
+# Engineering
 
 Особистий маркетплейс для Claude Code: скіли, команди та агенти, які я перевикористовую у всіх проєктах.
 
 ## Структура
 
 ```
-my-claude-marketplace/
+engineering/
 ├── .claude-plugin/
 │   └── marketplace.json          # каталог маркетплейсу
 └── plugins/
@@ -21,11 +21,11 @@ my-claude-marketplace/
 
 ## Перший запуск (один раз)
 
-1. Створи порожній репозиторій на GitHub (можна приватний), наприклад `my-claude-marketplace`.
+1. Створи порожній репозиторій на GitHub (можна приватний), наприклад `engineering`.
 2. Запуш цю папку туди:
    ```bash
-   cd my-claude-marketplace
-   git remote add origin git@github.com:YOUR-GITHUB-USERNAME/my-claude-marketplace.git
+   cd engineering
+   git remote add origin git@github.com:YOUR-GITHUB-USERNAME/engineering.git
    git push -u origin main
    ```
 3. Встав свій справжній `YOUR-GITHUB-USERNAME` у:
@@ -33,22 +33,22 @@ my-claude-marketplace/
    - цей README
 4. Підключи маркетплейс у Claude Code:
    ```bash
-   claude plugin marketplace add YOUR-GITHUB-USERNAME/my-claude-marketplace
-   claude plugin install toolkit@my-marketplace
+   claude plugin marketplace add YOUR-GITHUB-USERNAME/engineering
+   claude plugin install toolkit@engineering
    ```
-   (або всередині сесії: `/plugin marketplace add ...` та `/plugin install toolkit@my-marketplace`; при встановленні обирай scope **user** — щоб плагін був у всіх твоїх сесіях)
+   (або всередині сесії: `/plugin marketplace add ...` та `/plugin install toolkit@engineering`; при встановленні обирай scope **user** — щоб плагін був у всіх твоїх сесіях)
 
 ## На кожній новій машині
 
 ```bash
-claude plugin marketplace add YOUR-GITHUB-USERNAME/my-claude-marketplace
-claude plugin install toolkit@my-marketplace
+claude plugin marketplace add YOUR-GITHUB-USERNAME/engineering
+claude plugin install toolkit@engineering
 ```
 
 ## Щоденне використання
 
 - **Зберегти знання з розмови:** скажи Claude «збережи цей скіл у хмарі» — спрацює скіл `save-skill`, і Claude сам створить SKILL.md, закомітить і запушить сюди.
-- **Підтягнути оновлення на іншій машині:** `/plugin marketplace update my-marketplace`.
+- **Підтягнути оновлення на іншій машині:** `/plugin marketplace update engineering`.
 - **Локальні правки без пушу:** редагуй файли і виконай `/reload-plugins` у сесії.
 - **Перевірка валідності:** `claude plugin validate .` з кореня репозиторію.
 
@@ -68,4 +68,4 @@ claude plugin install toolkit@my-marketplace
 
 ## Claude Desktop (Cowork)
 
-У налаштуваннях плагінів Desktop-застосунку додай маркетплейс, вказавши `YOUR-GITHUB-USERNAME/my-claude-marketplace`, і встанови `toolkit` зі списку — ті самі скіли працюватимуть і там.
+У налаштуваннях плагінів Desktop-застосунку додай маркетплейс, вказавши `YOUR-GITHUB-USERNAME/engineering`, і встанови `toolkit` зі списку — ті самі скіли працюватимуть і там.
