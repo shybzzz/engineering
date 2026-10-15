@@ -1,0 +1,15 @@
+{
+  "name": "my-marketplace",
+  "description": "Особистий маркетплейс: скіли, команди та агенти для перевикористання у всіх проєктах",
+  "owner": {
+    "name": "Rostyk Romanyshyn",
+    "email": "rostyk.romanyshyn@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "toolkit",
+      "source": "./plugins/toolkit",
+      "description": "Мій базовий набір скілів для щоденної роботи"
+    }
+  ]
+}

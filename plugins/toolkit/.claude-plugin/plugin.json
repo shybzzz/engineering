@@ -1,0 +1,9 @@
+{
+  "name": "toolkit",
+  "description": "Мій базовий набір скілів для щоденної роботи: збереження скілів у хмарі та інші перевикористовувані workflow",
+  "version": "0.1.0",
+  "author": {
+    "name": "Rostyk Romanyshyn",
+    "email": "rostyk.romanyshyn@gmail.com"
+  }
+}
