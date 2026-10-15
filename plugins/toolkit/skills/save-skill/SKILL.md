@@ -9,7 +9,7 @@ description: Зберігає новий або оновлений скіл у �
 
 ## Конфігурація
 
-- MARKETPLACE_REPO: `https://github.com/YOUR-GITHUB-USERNAME/engineering`
+- MARKETPLACE_REPO: `https://github.com/shybzzz/engineering`
 - Локальна копія (якщо є): `~/engineering`
 - Плагін для скілів: `toolkit`
 

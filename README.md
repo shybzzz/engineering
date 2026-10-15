@@ -25,15 +25,15 @@ engineering/
 2. Запуш цю папку туди:
    ```bash
    cd engineering
-   git remote add origin git@github.com:YOUR-GITHUB-USERNAME/engineering.git
+   git remote add origin git@github.com:shybzzz/engineering.git
    git push -u origin main
    ```
-3. Встав свій справжній `YOUR-GITHUB-USERNAME` у:
+3. Встав свій справжній `shybzzz` у:
    - `plugins/toolkit/skills/save-skill/SKILL.md` (рядок MARKETPLACE_REPO)
    - цей README
 4. Підключи маркетплейс у Claude Code:
    ```bash
-   claude plugin marketplace add YOUR-GITHUB-USERNAME/engineering
+   claude plugin marketplace add shybzzz/engineering
    claude plugin install toolkit@engineering
    ```
    (або всередині сесії: `/plugin marketplace add ...` та `/plugin install toolkit@engineering`; при встановленні обирай scope **user** — щоб плагін був у всіх твоїх сесіях)
@@ -41,7 +41,7 @@ engineering/
 ## На кожній новій машині
 
 ```bash
-claude plugin marketplace add YOUR-GITHUB-USERNAME/engineering
+claude plugin marketplace add shybzzz/engineering
 claude plugin install toolkit@engineering
 ```
 
@@ -68,4 +68,4 @@ claude plugin install toolkit@engineering
 
 ## Claude Desktop (Cowork)
 
-У налаштуваннях плагінів Desktop-застосунку додай маркетплейс, вказавши `YOUR-GITHUB-USERNAME/engineering`, і встанови `toolkit` зі списку — ті самі скіли працюватимуть і там.
+У налаштуваннях плагінів Desktop-застосунку додай маркетплейс, вказавши `shybzzz/engineering`, і встанови `toolkit` зі списку — ті самі скіли працюватимуть і там.
