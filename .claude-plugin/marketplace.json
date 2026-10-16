@@ -10,6 +10,11 @@
       "name": "toolkit",
       "source": "./plugins/toolkit",
       "description": "Мій базовий набір скілів для щоденної роботи"
+    },
+    {
+      "name": "maker",
+      "source": "./plugins/maker",
+      "description": "Виготовлення фізичних речей: 3D-моделі для друку, перевірка STL, підготовка до слайсера"
     }
   ]
 }

@@ -1,0 +1,9 @@
+{
+  "name": "maker",
+  "description": "Скіли для виготовлення фізичних речей: проєктування та генерація 3D-моделей для друку, перевірка STL/3MF, підготовка до слайсера",
+  "version": "0.1.0",
+  "author": {
+    "name": "Rostyk Romanyshyn",
+    "email": "rostyk.romanyshyn@gmail.com"
+  }
+}
