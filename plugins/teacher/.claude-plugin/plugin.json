@@ -1,0 +1,9 @@
+{
+  "name": "teacher",
+  "description": "Скіли для викладацької роботи: силабуси навчальних дисциплін, синхронізовані з освітньою програмою, та інші навчально-методичні документи",
+  "version": "0.1.0",
+  "author": {
+    "name": "Rostyk Romanyshyn",
+    "email": "rostyk.romanyshyn@gmail.com"
+  }
+}
