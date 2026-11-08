@@ -15,6 +15,14 @@ next to this file in `scripts/`:
 - `scripts/mesh_kit.py` — template module for generating watertight STL:
   `Mesh.tri/loft/flat/engrave/pocket/check/write`, text from a font, SVG logo.
   Self-test: `python -I mesh_kit.py demo.stl`.
+- `scripts/fc_lib.py` — FreeCAD helpers for route B: bootstrap, box/cyl/cone, `prism` (XY), `prism_yz`,
+  `prism_xz`, `round_end` (printable hinge end), fuse/cut/rot/move, reports, `interference`,
+  exports via ASCII temp paths, multi-shell STL. Self-test: `python.exe -B fc_lib.py`.
+- `scripts/fc_render.py` — numpy z-buffer previews of FreeCAD shapes (iso/front/right/top or an
+  (elev, azim) tuple), crop with `shape.common(box)` for close-ups. Self-test: `python.exe -B fc_render.py`.
+- `scripts/stl_bodies.py` — split any STL (e.g. a print-in-place thing from Thingiverse) into its
+  bodies and draw coloured sections at given heights / X positions; needs trimesh + matplotlib from
+  the user site-packages, so run it with `python -P -E` (not `-I`).
 
 Two generation routes — pick one up front:
 
@@ -125,6 +133,36 @@ Other FDM rules:
   40 % infill; wheels/rollers 100 % or ≥ 60 %; TPU only for sliding bushings.
   Infill lowers effective permittivity and absorbs moisture — matters for RF parts.
 
+### Print-in-place flat mechanisms (hinged plates, kickstands, folding stands)
+
+Everything sits on the bed, so every body is a slab of the same height and the only freedom is
+rotation about horizontal axes. Rules that came out of building one:
+
+- **Hinge = cone pins in cone sockets**, both printed in place: base Ø≈5.6, length ≈4, half-angle
+  ≈32° (a steeper cone is a long horizontal hole; a 45° cone is too short to engage), ≈0.45 mm radial
+  clearance, ≈0.9 mm side gaps between bodies. Sockets ≤ Ø6 print without supports. Offer a coupon
+  with three clearances (0.35/0.45/0.55) before the real part.
+- **Ends that turn** (knuckles, toes) are teardrops: semicircle on top, 45° chamfer below
+  (`fc_lib.round_end`) — they sweep within their radius and have no overhang. A square bottom corner
+  sweeps r·√2 and hits something at some angle.
+- **"A rests on B" is only possible as a 45° underside on A over the same 45° slope on B**, offset by
+  the play (0.2). A flat floor under a chamfered lug intersects the body; a flat lug underside is an
+  overhang. Use it for lugs that keep a folded plate from dropping through its window and for sloped
+  floors under parked feet.
+- **A crossbar beyond a hinged plate's free end swings in front of the plate at flat angles**
+  (offset n = d·sin(rho − theta)) — a U-shaped strut hinged at the top of a plate collides with
+  whatever leans on the plate. Use two separate legs retained by a yoke (bar + cheeks) on the plate.
+- **Reach limit**: legs hinged at height L_sup·sinθ reach the base only while
+  `L_sup·sinθ + z_hinge − (z_floor + r_toe) ≤ L_toe`; compute every angle's foot position and the
+  tooth left between pockets in `derive()` and raise when a tooth is thinner than ~2.5 mm.
+- **Check the motion, not only the poses**: rotate the moving bodies through the whole range in 2°
+  steps against the fixed one (held-together and free-hanging variants) and demand zero common
+  volume; a foot riding up with the plate swings forward on its arc and needs its parking slot
+  lengthened — the pose table never shows that. Report the informational extremes (e.g. "feet drag
+  behind the back edge below N°") because they become usage instructions.
+- Separate bodies in one STL (`export_stl_multi`); tell the user to keep them as one object in the
+  slicer and to work the hinges free after printing.
+
 ## 3. Assemblability — zero interference is not enough
 
 An interference/boolean check only proves parts don't overlap in their final
@@ -196,6 +234,25 @@ part** (wheel, bearing, bushing, nut, screw):
 - Pinch between opposing wheels: 0 = wheels just touch the cord; raise it for grip,
   watching the rim gap; lower it if the carriage binds or the cord is hard to
   thread.
+
+### Cable and cord channels, snap-in clips
+
+- Measure the cable twice: the plain jacket and the strain-relief boot at the device. Size the slot
+  and the first channel segment for the boot, the long clip channel for the jacket, and check in
+  `derive()` that the boot ends before the clip channel (path length ≥ boot length).
+- Snap-in profile: floor, vertical walls (jacket Ø + 0.4), 45° shoulders narrowing to a neck
+  (jacket Ø − 0.3) under a lip at least as tall as the fillet radius; the cable's top should sit just
+  under the shoulders. Exits are plain cuts to the outside; corners the cable turns around get the
+  largest vertical fillet.
+- Every cut that meets another cut (or an opening) must overlap it by ≥ 0.5 mm on the correct side:
+  on the negative-X side "0.5 further out" is `-x - 0.5` and "0.5 into the opening" is `-x + 0.5`.
+  Two wrong signs once left 0.5 mm fins inside a channel that no interference check sees — so add a
+  **cable probe**: a solid along the whole intended path (3/4 of the channel width, between floor
+  and shoulders) whose common volume with the body must be 0, and render a close-up of every junction.
+- When the user asks for rounded cable edges, **no edge may be silently skipped**: select the edges by
+  geometry (top lips, crossing/exit top edges, turn corners, exit edges on the outer face, slot
+  exits, notches), fillet in stages with a per-stage radius retry (0.8 → 0.6 → 0.5 → 0.4 → 0.3 → 0.2),
+  report the radius each stage got, and fail the build when a stage is refused at every radius.
 
 ## 6. Route A — generating a mesh without a mesh library
 
@@ -285,6 +342,26 @@ B-rep modelling rules:
   `bore_d`; rubs the cheeks → `axial_clear`; needs supports under a ceiling → slot
   window; …) and extend it after every test print.
 
+More B-rep rules learned the hard way:
+
+- Three prism helpers, one per plane (`prism` XY→Z, `prism_yz` →X, `prism_xz` →Y): a profile fed to
+  the wrong one cuts a slot somewhere else and the real problem stays. Every boolean that touches a
+  visible region gets a close-up render afterwards.
+- `shape.common()` of touching / coplanar solids can return a valid compound with a bogus BoundBox;
+  judge by the Solids' volumes, and shift one part by 0.05 mm to tell contact from overlap.
+- `rotate(centre, axis, deg)` is right-handed: +θ about +X tips +Y towards +Z. Pose a part that hangs
+  on another's hinge by rotating about the hinge's folded position, then translating by the hinge's
+  displacement.
+- **Fillets (OCC)**: an edge that ends on an earlier fillet surface is refused at larger radii, so the
+  stage order decides who gets the full radius; fillet connected chains in one call; select edges on
+  the current shape by geometry, never by identity (fillets move their neighbours); accept a result
+  only if valid, one solid, bounding box unchanged, plausible volume removed and the tessellation has
+  no self-intersections (bad fillets pass `isValid`). Lofted (B-spline) faces refuse fillets — build
+  sloped sides from planar wedge cuts. Diagnose with "each group alone on the raw body / each edge
+  alone" before touching geometry.
+- Keep a motion sweep and a cable/cord probe (section 2, section 5) in `check_assembly`; the
+  interference table alone misses both classes of defect.
+
 FreeCAD gotchas:
 
 - **Do not run `FreeCADCmd.exe script.py …` with non-ASCII paths on Windows**: it
@@ -324,6 +401,10 @@ FreeCAD gotchas:
    different length, a triangulation that added vertices, a duplicate face on a
    shared edge, degenerate triangles (zero normal — skip them).
 
+6. For mechanisms: the motion sweep is zero at every step and the probe solids along cord paths are
+   zero; expected contacts (friction ridges, click overlaps) are named with their magnitude.
+7. Fillet log: every requested edge group filleted, radii listed; close-ups of every changed region
+   read, not just generated.
 Report honestly: numbers from the check output, not "should be fine".
 
 ## 9. Previews and documentation
@@ -371,3 +452,9 @@ Report honestly: numbers from the check output, not "should be fine".
 - Slicers have CLIs: `prusa-slicer-console.exe`, `bambu-studio.exe`,
   `orca-slicer.exe` (`--help` for flags); PrusaSlicer `--info` is the handiest
   manifold check.
+- `python -I` hides the user site-packages (trimesh, matplotlib); use `python -P -E` for scripts that
+  need them while still keeping the data folder off `sys.path`. FreeCAD's own Python has numpy, PIL,
+  matplotlib, scipy but no trimesh.
+- Long bash heredocs (≳80 lines of Python) fail in Claude Code's bash tool with "unexpected EOF while
+  looking for matching quote": write the patch / diagnostic script to the scratchpad with the Write
+  tool and run it with a path argument.
