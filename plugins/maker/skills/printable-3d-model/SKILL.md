@@ -23,6 +23,9 @@ next to this file in `scripts/`:
 - `scripts/stl_bodies.py` — split any STL (e.g. a print-in-place thing from Thingiverse) into its
   bodies and draw coloured sections at given heights / X positions; needs trimesh + matplotlib from
   the user site-packages, so run it with `python -P -E` (not `-I`).
+- `scripts/fc_svg.py` — SVG logo → FreeCAD solid for a deboss/emboss without `importSVG` (which
+  fails headless on traced paths): path parser, holes by nesting, stroke thickening for line art
+  (`min_stroke`), `spark_mark()`, `place_on_plane()` for leaning faces. Self-test: `python.exe -B fc_svg.py`.
 
 Two generation routes — pick one up front:
 
@@ -147,11 +150,34 @@ rotation about horizontal axes. Rules that came out of building one:
   sweeps r·√2 and hits something at some angle.
 - **"A rests on B" is only possible as a 45° underside on A over the same 45° slope on B**, offset by
   the play (0.2). A flat floor under a chamfered lug intersects the body; a flat lug underside is an
-  overhang. Use it for lugs that keep a folded plate from dropping through its window and for sloped
-  floors under parked feet.
-- **A crossbar beyond a hinged plate's free end swings in front of the plate at flat angles**
-  (offset n = d·sin(rho − theta)) — a U-shaped strut hinged at the top of a plate collides with
-  whatever leans on the plate. Use two separate legs retained by a yoke (bar + cheeks) on the plate.
+  overhang. Use it for lugs that keep a folded plate from dropping through its window and for the
+  parked feet.
+- **A rest for a parked foot is "just a heel"**: ONE clean 45° slope from the part's top face straight
+  down to the bed, in front of the foot, as wide as the foot (from the wall it parks against to the
+  slot's outer wall), with nothing around it — no pocket walls, no step to a neighbouring strip, no
+  seam. A slope confined inside the slot reads as "a hump in a hole" to the user; a slope patched in
+  afterwards (`fuse` into a region a cut has opened) leaves a groove at the tool boundary. Build it by
+  removing everything above the plane (`prism_yz` triangle) and by subtracting the heel solid from the
+  window/slot tools — never by fusing a patch. Check the wall left over any hinge socket under the
+  slope (≥ 1 mm along the slope) in `derive()`.
+- **Only the working part of a teardrop foot should exist**: the quarter-round that touches the pocket
+  floors and the 45° chamfer that rests on the heel. Leave the foot tab's rear square and make the
+  through slot behind it only `tab + gap + 0.5` long; the teardrop's round back on a 1 mm tab is a bump
+  that forces a slot of the full diameter (another "hump and hole").
+- **Rigid legs = a ladder**: join two legs with thin crossbars BETWEEN them (never beyond the hinged
+  plate's free end: a bar past the pins swings in front of the plate at flat angles, offset
+  n = d·sin(rho − theta), and hits what leans on the plate). Bars on the bed side, folded they pass under
+  whatever the plate stores, through grooves in the plate's underside whose ceiling may at most reach
+  the storage floor plane; the bars also fix the leg spacing, so the plate needs no retaining cheeks —
+  only a short top bar as lug carrier. A bar close to the hinge axis swings along its groove before it
+  drops: the groove's rear wall needs `|a| − sqrt(a² − h(2·hz − h)) + 0.3` of clearance (a = bar rear
+  face to the axis, h = bar height, hz = axis height), so keep bars ≥ 10 mm from the axis.
+- **Sweep relative motions over the relative range**: the legs' swing relative to the plate is
+  rho − theta (26..59° in the pockets, 90 − theta hanging free), not rho; the plate's top bar doubles
+  as an end stop far beyond that (~100°) — report it as informational.
+- **What the plate cannot do**: carry the legs' hinge ends with a heel of its own — any point under the
+  folded hinge-end chamfer inside the R4 circle around the pin is swept by the leg at 10..60° of swing,
+  i.e. the working range. Say so with the numbers instead of substituting a ledge elsewhere.
 - **Reach limit**: legs hinged at height L_sup·sinθ reach the base only while
   `L_sup·sinθ + z_hinge − (z_floor + r_toe) ≤ L_toe`; compute every angle's foot position and the
   tooth left between pockets in `derive()` and raise when a tooth is thinner than ~2.5 mm.
@@ -415,6 +441,13 @@ Report honestly: numbers from the check output, not "should be fine".
   sort, Lambert shading). Read the PNGs after every geometry change. Labels in
   English if the file goes to Thingiverse/Printables; the build report in the
   collaborators' language.
+- Maker's marks from SVG (the user's logo, a generator mark): `fc_svg.py`, deboss 0.5–0.6 mm into a
+  visible flat or leaning face (a lip's front, a rail top), never the bed face of a thin floor. Traced
+  line art has strokes of 0.05–0.1 mm at badge size: thicken to ≥ 0.45 mm (`min_stroke`) or the slicer
+  drops them; the thickening must be bands on each wire (offsetting the whole face loses the holes).
+  Check the mark's close-up AND the body's tessellation afterwards (thin bands can create facets that
+  `hasSelfIntersections` flags; PrusaSlicer `--info` is the tie-breaker). Keep the SVG in the repo and
+  name its path in the params so the owner can swap it.
 - Rasterising SVG: take `width`/`height` from the SVG root and capture headless
   Edge/Chrome at exactly that size with `--force-device-scale-factor=2`, otherwise
   the field is empty; wait ~1 s after the call — the process returns before the
@@ -441,6 +474,20 @@ Report honestly: numbers from the check output, not "should be fine".
    "clean version" unless asked. When the user specifies a form themselves (a
    sketch, a three-step description), implement their spec rather than an
    alternative.
+6. **A marked screenshot is the spec.** Before changing anything, reproduce that exact view with
+   the renderer (same camera; first in one colour as the slicer shows it, then one colour per body)
+   and name which body and which feature sits inside the mark — twice a circled "hump" turned out to
+   be a feature of the base taken for the foot. Then make the change and re-render the same view.
+   A short reply with the view's name lets the user mark the next screenshot on it.
+7. **Words name shapes, not parts**: "heel" (п'ятка) was used for any 45° stop under a part,
+   "ears" (вуха) for retaining cheeks, "mount/attachment" (кріплення) for the hinge zone, "lower /
+   upper blockers" for the front / back rests. If a word fits two bodies, render both readings or ask
+   with a picture; never pick one silently.
+8. **When the ask is impossible, say so and stop there**: give the number that kills it (e.g. "the
+   leg sweeps that spot at 10..60°, the working range is 26..59°") and ask where else they imagine it.
+   Do not substitute a different feature that solves the same problem — it will be reverted, and the
+   substitution hides the fact that the original idea was not understood.
+9. "Revert this change" means the whole last step, including things added "while at it".
 
 ## Environment pitfalls (Windows)
 
