@@ -28,7 +28,7 @@ Assets next to this file:
    | CC BY | remix, share, sell | credit author + thing id + link |
    | CC BY-SA | remix, share | credit + publish under the SAME licence |
    | CC BY-NC | remix, share, not sell | credit + keep NC, say "non-commercial" |
-   | CC BY-ND / "no derivatives" | NOT remix | stop; tell the user a remix cannot be published |
+   | CC BY-ND / "no derivatives" | print and modify for yourself, NOT publish a derivative | stop before modelling and tell the user; offer the three ways out: (a) design from scratch from the idea only, without measuring or reusing the original's geometry — then it is not a derivative and the post names the original as inspiration only; (b) ask the author for written permission and quote it in Credits; (c) keep the remix private |
    | CC0 / public domain | anything | credit anyway (good manners) |
 
 3. Inspect the original before copying its ideas: `stl_bodies.py` from `maker:printable-3d-model`
