@@ -15,6 +15,10 @@
 //  Кольори панель бере зі змінних сторінки --bg, --card, --text, --muted,
 //  --line, --accent, --on-accent, --danger, --danger-bg (якщо вони задані).
 //  Елементи з data-wifi="name|ssid|ip|host|ap" панель заповнює сама.
+//
+//  Стан Wi-Fi панель не перепитує: він приходить каналом стану (/state.js,
+//  теми "hello", "wifi", "wifi-networks"). Дії користувача — запити до
+//  /api/wifi/... (опис — у wifi_portal.h).
 // ---------------------------------------------------------------------------
 const char WIFI_PORTAL_JS[] PROGMEM = R"WPJS((function () {
 'use strict';
@@ -166,20 +170,32 @@ const ERRORS = {
 const LOCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Потрібен пароль"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 
 const toggle = $('toggle');
-let selected = null;   // вибрана мережа: {ssid, open}
+let selected = null;        // вибрана мережа: {ssid, open}
+let view = '';              // що зараз показує панель
+let via = '';               // адреса пристрою, через яку відкрито сторінку (тема "hello")
+let setup = false;          // сторінку відкрито через мережу налаштування
+let wifi = null;            // останній стан Wi-Fi від пристрою (тема "wifi")
+let nets = null;            // останній стан пошуку мереж (тема "wifi-networks")
+let scanWaiting = false;    // чекаємо на результат пошуку
+let scanWanted = Infinity;  // …саме з таким номером (або новішим)
+let scanTimer = 0;
+let connectWaiting = false; // чекаємо на результат підключення
+let attemptWanted = Infinity;
 
 function show(name) {
+  view = name;
   VIEWS.forEach(v => { $('view-' + v).hidden = (v !== name); });
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Запит до пристрою з обмеженням часу: його мережа може ненадовго зникати.
-function getJSON(url, options) {
+// Дія користувача — запит до пристрою. Обмеження часу: його мережа може
+// ненадовго зникати. Те, що з дії вийшло, приходить каналом стану.
+function act(method, url, body) {
   return Promise.race([
-    fetch(url, options).then(r => {
+    fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }),
@@ -212,21 +228,39 @@ function applyStatus(s) {
 
 // ---------- Список мереж ----------
 
-async function scan() {
+function scan() {
   show('list');
   $('nets').innerHTML = '';
   $('scan-msg').textContent = 'Шукаю мережі…';
   $('scan-msg').hidden = false;
   $('rescan').disabled = true;
 
-  let url = '/wifi/scan?start=1';
-  for (;;) {
-    let data = null;
-    try { data = await getJSON(url); } catch (e) { /* спробуємо ще раз */ }
-    if (data) url = '/wifi/scan';
-    if (data && data.status === 'done') { renderNets(data.networks); break; }
-    await sleep(1000);
+  scanWaiting = true;
+  scanWanted = Infinity;    // номер пошуку дізнаємось із відповіді пристрою
+  requestScan();
+}
+
+// Просить пристрій почати пошук. Список мереж прийде каналом стану.
+async function requestScan() {
+  clearTimeout(scanTimer);
+  if (!scanWaiting) return;
+  // Результат так і не прийшов (пристрій перезапустився?) — попросимо ще раз.
+  scanTimer = setTimeout(requestScan, 15000);
+  try {
+    scanWanted = (await act('POST', '/api/wifi/scans')).scan;
+    checkNets();
+  } catch (e) {
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(requestScan, 1500);
   }
+}
+
+// Показує список, коли прийшов результат саме нашого пошуку (а не давнішого).
+function checkNets() {
+  if (!scanWaiting || !nets || nets.scanning || nets.scan < scanWanted) return;
+  scanWaiting = false;
+  clearTimeout(scanTimer);
+  renderNets(nets.networks);
   $('rescan').disabled = false;
 }
 
@@ -322,30 +356,25 @@ function showDone(s) {
   $('done-title').textContent = online ? 'Wi-Fi підключено' : 'Wi-Fi не підключено';
   $('done-info').hidden = !online;
   $('done-ssid').textContent = s.ssid;
-  $('done-how').textContent = s.setup
+  $('done-how').textContent = setup
     ? 'Щоб відкрити його з цієї мережі, підключись до неї та відкрий:'
     : 'Його адреса в цій мережі:';
   setLink($('done-ip'), 'http://' + s.ip + '/');
   setLink($('done-host'), 'http://' + s.host + '.local/');
-  $('change').hidden = !s.setup;
-  $('done-remote').hidden = s.setup;
+  $('change').hidden = !setup;
+  $('done-remote').hidden = setup;
   $('done-ap').textContent = s.ap;
   $('done-apip').textContent = 'http://' + s.apIp;
   show('done');
 }
 
-async function pollStatus() {
-  for (;;) {
-    await sleep(1000);
-    let s;
-    try { s = await getJSON('/wifi/status'); } catch (e) { continue; }
-    if (s.state === 'connecting') continue;
-    applyStatus(s);
-    if (s.state === 'connected') { showDone(s); return; }
-    show('pass');
-    showError(s.state === 'failed' ? (ERRORS[s.error] || ERRORS.other) : ERRORS.other);
-    return;
-  }
+// Показує, чим закінчилось підключення, яке замовила ця сторінка.
+function checkAttempt() {
+  if (!connectWaiting || !wifi || wifi.attempt < attemptWanted || wifi.state === 'connecting') return;
+  connectWaiting = false;
+  if (wifi.state === 'connected') { showDone(wifi); return; }
+  show('pass');
+  showError(wifi.state === 'failed' ? (ERRORS[wifi.error] || ERRORS.other) : ERRORS.other);
 }
 
 toggle.addEventListener('click', () => setOpen(panel.hidden));
@@ -365,29 +394,23 @@ $('view-pass').addEventListener('submit', async e => {
 
   showError('');
   showProgress(selected.ssid);
+  connectWaiting = true;
+  attemptWanted = Infinity;   // номер спроби дізнаємось із відповіді пристрою
   try {
-    await getJSON('/wifi/connect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'ssid=' + encodeURIComponent(selected.ssid) + '&pass=' + encodeURIComponent(pass)
-    });
+    attemptWanted = (await act('PUT', '/api/wifi/network', { ssid: selected.ssid, password: pass })).attempt;
   } catch (err) {
+    connectWaiting = false;
     show('pass');
     showError(ERRORS.lost);
     return;
   }
-  pollStatus();
+  checkAttempt();
 });
 
-// ---------- Старт ----------
+// ---------- Стан від пристрою (канал стану) ----------
 
-(async function init() {
-  let s = null;
-  while (!s) {
-    try { s = await getJSON('/wifi/status'); } catch (e) { await sleep(1500); }
-  }
-  applyStatus(s);
-
+// Перший стан після відкриття сторінки: вирішуємо, що показати.
+function begin(s) {
   // Є зв'язок — панель згорнута в кнопку (data-open на #wifi-panel лишає її розгорнутою).
   if (s.state === 'connected') {
     showDone(s);
@@ -397,16 +420,51 @@ $('view-pass').addEventListener('submit', async e => {
   setOpen(true);
 
   // Сторінку відкрито не через мережу налаштування — вибирати мережу звідси не можна.
-  if (!s.setup) { showDone(s); return; }
+  if (!setup) { showDone(s); return; }
   // Сторінку могли перезавантажити посеред підключення — показуємо, на чому зупинились.
   if (s.state === 'connecting') {
     prepare({ ssid: s.ssid, open: false });
     showProgress(s.ssid);
-    pollStatus();
+    connectWaiting = true;
+    attemptWanted = s.attempt;
     return;
   }
   scan();
-})();
+}
+
+function onWifi(s) {
+  const before = wifi;
+  wifi = s;
+  setup = via !== '' && via === s.apIp;
+  applyStatus(s);
+
+  if (!before) { begin(s); return; }
+  if (connectWaiting) { checkAttempt(); return; }
+
+  // Зв'язок із домашньою мережею з'явився або зник сам, без участі цієї сторінки.
+  const online = s.state === 'connected';
+  if (online === (before.state === 'connected')) return;
+  if (online) { showDone(s); return; }
+  setOpen(true);                                            // без зв'язку панель розгорнута
+  if (view !== 'list' && view !== 'pass') showDone(s);      // хто саме вибирає мережу — тому не заважаємо
+}
+
+function start() {
+  const state = window.deviceState;
+  state.on('hello', h => { via = h.via || ''; });
+  state.on('wifi', onWifi);
+  state.on('wifi-networks', n => { nets = n; checkNets(); });
+}
+
+// Канал стану сторінка могла вже підключити сама; якщо ні — підключаємо.
+if (window.deviceState) {
+  start();
+} else {
+  const script = document.createElement('script');
+  script.src = '/state.js';
+  script.onload = start;
+  document.head.appendChild(script);
+}
 })();
 )WPJS";
 

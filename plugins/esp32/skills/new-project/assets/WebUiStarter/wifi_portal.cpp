@@ -7,6 +7,8 @@
 #include <ESPmDNS.h>
 #include <Preferences.h>
 
+#include "json_tools.h"
+#include "state_socket.h"
 #include "wifi_portal_page.h"
 
 namespace {
@@ -45,6 +47,12 @@ volatile uint8_t failCount      = 0;
 volatile uint8_t lastFailReason = 0;
 
 bool mdnsStarted = false;
+
+// Номери замовлень зі сторінки: за ними вона впізнає "свій" результат у каналі стану
+uint32_t attemptId  = 0;       // останнє підключення, замовлене зі сторінки
+uint32_t scanId     = 0;       // останній пошук мереж
+bool     scanWanted = false;   // сторінка чекає на результат пошуку
+uint32_t scanTryMs  = 0;
 
 // ======================= Збережена мережа (Preferences) ===================
 
@@ -121,6 +129,59 @@ void startSetupNetwork() {
                 cfg.apSsid, WiFi.softAPIP().toString().c_str());
 }
 
+// ============================== Пошук мереж ===============================
+
+// Стан пошуку для сторінок — тема "wifi-networks" каналу стану.
+void publishNetworks(bool scanning) {
+  String json = "{\"scan\":" + String(scanId) + ",\"scanning\":";
+  json += scanning ? "true" : "false";
+  json += ",\"networks\":[";
+  int16_t count = scanning ? 0 : WiFi.scanComplete();   // від'ємне — результату немає
+  bool first = true;
+  for (int i = 0; i < count; i++) {
+    String ssid = WiFi.SSID(i);
+    if (ssid.length() == 0) continue;             // приховані мережі пропускаємо
+    if (!first) json += ',';
+    first = false;
+    json += "{\"ssid\":\"" + jsonEscape(ssid) + "\",\"rssi\":" + String(WiFi.RSSI(i));
+    json += ",\"open\":";
+    json += (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "true" : "false";
+    json += '}';
+  }
+  json += "]}";
+  statePublish("wifi-networks", json);
+}
+
+void startScan() {
+  if (WiFi.scanComplete() == WIFI_SCAN_RUNNING) return;
+
+  if (connState == CONN_CONNECTING) {
+    if (attemptByUser) return;    // користувач саме підключається — не заважаємо
+    WiFi.disconnect();            // автоматичну спробу перериваємо: пошук важливіший
+    attemptEndMs = millis();
+    connState    = CONN_IDLE;
+  }
+  WiFi.scanDelete();
+  WiFi.scanNetworks(true);        // true — шукати у фоні, не зупиняючи програму
+}
+
+// Чекає на результат пошуку, який замовила сторінка, і повідомляє його.
+void updateScan() {
+  if (!scanWanted) return;
+
+  int16_t count = WiFi.scanComplete();
+  if (count == WIFI_SCAN_RUNNING) return;
+  if (count == WIFI_SCAN_FAILED) {                // пошук не почався або зірвався — пробуємо знову
+    if (millis() - scanTryMs >= 1000) {
+      scanTryMs = millis();
+      startScan();
+    }
+    return;
+  }
+  scanWanted = false;
+  publishNetworks(false);
+}
+
 // ============================== Підключення ===============================
 
 // Починає підключення і одразу повертається; результат відстежує updateConnection().
@@ -131,6 +192,10 @@ void beginConnect(const String& ssid, const String& pass, bool byUser) {
   attemptError  = "";
 
   WiFi.scanDelete();
+  if (scanWanted) {         // мережу вже вибрано — результат пошуку більше не потрібен
+    scanWanted = false;
+    publishNetworks(false);
+  }
   WiFi.disconnect();
   gotIp          = false;
   failCount      = 0;
@@ -241,65 +306,8 @@ void handleScript() {
   server->send_P(200, "application/javascript; charset=utf-8", WIFI_PORTAL_JS);
 }
 
-void startScan() {
-  if (WiFi.scanComplete() == WIFI_SCAN_RUNNING) return;
-
-  if (connState == CONN_CONNECTING) {
-    if (attemptByUser) return;    // користувач саме підключається — не заважаємо
-    WiFi.disconnect();            // автоматичну спробу перериваємо: пошук важливіший
-    attemptEndMs = millis();
-    connState    = CONN_IDLE;
-  }
-  WiFi.scanDelete();
-  WiFi.scanNetworks(true);        // true — шукати у фоні, не зупиняючи програму
-}
-
-// GET /wifi/scan[?start=1] — список мереж довкола
-void handleScan() {
-  if (!wifiPortalFromSetupNetwork()) { sendJson(403, "{\"status\":\"forbidden\"}"); return; }
-
-  if (server->hasArg("start")) startScan();
-
-  int16_t count = WiFi.scanComplete();
-  if (count < 0) {
-    if (count == WIFI_SCAN_FAILED) startScan();   // пошук ще не починався або зірвався
-    sendJson(200, "{\"status\":\"scanning\"}");
-    return;
-  }
-
-  String json = "{\"status\":\"done\",\"networks\":[";
-  bool first = true;
-  for (int i = 0; i < count; i++) {
-    String ssid = WiFi.SSID(i);
-    if (ssid.length() == 0) continue;             // приховані мережі пропускаємо
-    if (!first) json += ',';
-    first = false;
-    json += "{\"ssid\":\"" + wifiPortalJsonEscape(ssid) + "\",\"rssi\":" + String(WiFi.RSSI(i));
-    json += ",\"open\":";
-    json += (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "true" : "false";
-    json += '}';
-  }
-  json += "]}";
-  sendJson(200, json);
-}
-
-// POST /wifi/connect (ssid, pass) — підключитися до вибраної мережі
-void handleConnect() {
-  if (!wifiPortalFromSetupNetwork()) { sendJson(403, "{\"ok\":false}"); return; }
-
-  String ssid = server->arg("ssid");
-  String pass = server->arg("pass");
-  if (ssid.length() == 0 || ssid.length() > 32 || pass.length() > 64) {
-    sendJson(400, "{\"ok\":false}");
-    return;
-  }
-
-  sendJson(200, "{\"ok\":true}");   // спершу відповідь, бо під час підключення зв'язок може "моргнути"
-  beginConnect(ssid, pass, true);
-}
-
-// GET /wifi/status — що зараз відбувається
-void handleStatus() {
+// Стан Wi-Fi — тема "wifi" каналу стану і відповідь GET /api/wifi
+String wifiStateJson() {
   const char* state = "idle";
   if (isOnline())                                          state = "connected";
   else if (connState == CONN_CONNECTING && attemptByUser)  state = "connecting";
@@ -307,19 +315,71 @@ void handleStatus() {
 
   String json = "{\"state\":\"";
   json += state;
-  json += "\",\"ssid\":\"" + wifiPortalJsonEscape(attemptSsid);
+  json += "\",\"ssid\":\"" + jsonEscape(attemptSsid);
   json += "\",\"ip\":\"";
   if (isOnline()) json += WiFi.localIP().toString();
-  json += "\",\"host\":\"" + wifiPortalJsonEscape(cfg.hostname);
-  json += "\",\"ap\":\"" + wifiPortalJsonEscape(cfg.apSsid);
+  json += "\",\"host\":\"" + jsonEscape(cfg.hostname);
+  json += "\",\"ap\":\"" + jsonEscape(cfg.apSsid);
   json += "\",\"apIp\":\"" + WiFi.softAPIP().toString();
-  json += "\",\"name\":\"" + wifiPortalJsonEscape(cfg.deviceName);
+  json += "\",\"name\":\"" + jsonEscape(cfg.deviceName);
   json += "\",\"error\":\"";
   if (connState == CONN_FAILED) json += attemptError;
-  json += "\",\"setup\":";    // чи прийшов цей запит через мережу налаштування
-  json += wifiPortalFromSetupNetwork() ? "true" : "false";
+  json += "\",\"attempt\":" + String(attemptId);
   json += '}';
-  sendJson(200, json);
+  return json;
+}
+
+// Повідомляє сторінкам стан Wi-Fi. Канал сам відкидає повтори, тож сторінки
+// отримують повідомлення лише тоді, коли щось справді змінилося.
+void publishWifiState() {
+  static uint32_t lastMs = 0;
+  if (millis() - lastMs < 200) return;
+  lastMs = millis();
+  statePublish("wifi", wifiStateJson());
+}
+
+void sendError(int code, const char* text) {
+  sendJson(code, String("{\"error\":\"") + text + "\"}");
+}
+
+// GET /api/wifi — стан Wi-Fi (для перевірки з комп'ютера; сторінки слухають канал стану)
+void handleWifiGet() {
+  sendJson(200, wifiStateJson());
+}
+
+// POST /api/wifi/scans — почати пошук мереж; результат прийде каналом стану
+void handleScanCreate() {
+  if (!wifiPortalFromSetupNetwork()) { sendError(403, "setup network only"); return; }
+
+  scanId++;
+  scanWanted = true;
+  scanTryMs  = millis();
+  startScan();
+  publishNetworks(true);
+  sendJson(202, "{\"scan\":" + String(scanId) + "}");
+}
+
+// PUT /api/wifi/network {"ssid":"…","password":"…"} — підключитися до вибраної мережі;
+// що вийшло, сторінка побачить у каналі стану
+void handleNetworkPut() {
+  if (!wifiPortalFromSetupNetwork()) { sendError(403, "setup network only"); return; }
+
+  String body = server->arg("plain");
+  String ssid;
+  String pass;
+  if (!jsonGetString(body, "ssid", ssid) || ssid.length() == 0 || ssid.length() > 32) {
+    sendError(400, "ssid: text, 1-32 bytes");
+    return;
+  }
+  jsonGetString(body, "password", pass);    // поля немає — мережа відкрита
+  if (pass.length() > 64) {
+    sendError(400, "password: up to 64 bytes");
+    return;
+  }
+
+  attemptId++;
+  sendJson(202, "{\"attempt\":" + String(attemptId) + "}");   // спершу відповідь, бо під час підключення зв'язок може "моргнути"
+  beginConnect(ssid, pass, true);
 }
 
 void handleNotFound() {
@@ -377,6 +437,7 @@ void wifiPortalBegin(WebServer& webServer, const WifiPortalConfig& config) {
   WiFi.onEvent(onWiFiEvent);
 
   startSetupNetwork();
+  stateSocketBegin(*server);
 
   loadCredentials();
   if (savedSsid.length() > 0) {
@@ -387,10 +448,14 @@ void wifiPortalBegin(WebServer& webServer, const WifiPortalConfig& config) {
 
   server->on("/wifi", HTTP_GET, handlePage);
   server->on("/wifi/panel.js", HTTP_GET, handleScript);
-  server->on("/wifi/scan", HTTP_GET, handleScan);
-  server->on("/wifi/connect", HTTP_POST, handleConnect);
-  server->on("/wifi/status", HTTP_GET, handleStatus);
+  server->on("/api/wifi", HTTP_GET, handleWifiGet);
+  server->on("/api/wifi/network", HTTP_PUT, handleNetworkPut);
+  server->on("/api/wifi/scans", HTTP_POST, handleScanCreate);
   server->onNotFound(handleNotFound);
+
+  // Початковий стан обох тем — щоб сторінка отримала його, щойно підключиться
+  publishNetworks(false);
+  statePublish("wifi", wifiStateJson());
 }
 
 void wifiPortalLoop() {
@@ -398,6 +463,9 @@ void wifiPortalLoop() {
   updateConnection();
   watchConnection();
   updateAutoRetry();
+  updateScan();
+  publishWifiState();
+  stateSocketLoop();
   updateStatusLed();
   checkResetButton();
 }
@@ -419,23 +487,4 @@ bool wifiPortalHandleCaptive() {
   server->sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
   server->send(302, "text/plain", "");
   return true;
-}
-
-String wifiPortalJsonEscape(const String& text) {
-  String out;
-  out.reserve(text.length() + 8);
-  for (size_t i = 0; i < text.length(); i++) {
-    char c = text[i];
-    if (c == '"' || c == '\\') {
-      out += '\\';
-      out += c;
-    } else if ((uint8_t)c < 0x20) {
-      char buf[8];
-      snprintf(buf, sizeof(buf), "\\u%04x", (unsigned)c);
-      out += buf;
-    } else {
-      out += c;
-    }
-  }
-  return out;
 }

@@ -11,6 +11,26 @@
 //
 //  Wi-Fi: поки є зв'язок із домашньою мережею, панель згорнута в кнопку
 //  в шапці й не займає місця; без зв'язку — розгорнута над вмістом.
+//
+//  Стан сторінка отримує каналом стану і пристрій не опитує; дії користувача
+//  надсилає до REST API (опис — у state_socket.h). Приклад для лампи
+//  (прошивка — у коментарі в .ino); ставити перед /wifi/panel.js:
+//
+//    <script src="/state.js"></script>
+//    <script>
+//      const button = document.getElementById('lamp');
+//      let on = false;
+//      // Стан: пристрій повідомляє сам — щойно сторінка відкрилась і після кожної зміни.
+//      deviceState.on('lamp', data => { on = data.on; button.classList.toggle('on', on); });
+//      // Зв'язок із пристроєм є / зник.
+//      deviceState.onLink(connected => { button.disabled = !connected; });
+//      // Дія користувача: запит до REST API. Що вийшло — прийде каналом стану.
+//      button.addEventListener('click', () => fetch('/api/lamp', {
+//        method: 'PUT',
+//        headers: { 'Content-Type': 'application/json' },
+//        body: JSON.stringify({ on: !on })
+//      }));
+//    </script>
 // ---------------------------------------------------------------------------
 const char HOME_PAGE[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html lang="uk">

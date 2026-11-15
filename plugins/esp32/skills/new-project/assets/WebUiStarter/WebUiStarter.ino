@@ -5,15 +5,24 @@
   -------------
   - Wi-Fi: власна мережа налаштування, вибір домашньої мережі зі сторінки,
     збереження і автопідключення — усе це робить модуль wifi_portal
-    (опис — у wifi_portal.h; файли wifi_portal.* змінювати не треба).
+    (опис — у wifi_portal.h).
+  - Канал стану (WebSocket): пристрій сам повідомляє сторінкам, що в нього
+    змінилося; стан Wi-Fi вже йде цим каналом (опис — у state_socket.h).
   - Головна сторінка (pages.h) з панеллю Wi-Fi: поки є зв'язок із домашньою
     мережею, панель згорнута в кнопку і місце на сторінці віддане вмісту.
+  Файли wifi_portal.*, state_socket.* і json_tools.h змінювати не треба.
 
   Що додавати
   -----------
   - Сторінки проєкту — у pages.h, їхні адреси — у setup() через server.on().
-  - Логіку проєкту — у loop(), без довгих delay(): веб-сервер і Wi-Fi
-    обслуговуються в кожному проході loop().
+  - Стан, який сторінка показує безперервно, — лише каналом стану:
+    statePublish("тема", json) у setup() і після кожної зміни. Сторінка
+    пристрій не опитує.
+  - Дії користувача — REST API: адреса називає річ (/api/lamp, /api/leds/3),
+    метод — що з нею зробити (PUT, PATCH, POST, DELETE), тіло і відповідь —
+    JSON, код відповіді каже, що вийшло. Приклад — нижче, у коментарях.
+  - Логіку проєкту — у loop(), без довгих delay(): веб-сервер, Wi-Fi і канал
+    стану обслуговуються в кожному проході loop().
 
   Плата:      ESP32 Dev Module (ядро "esp32 by Espressif Systems" 3.x)
   Бібліотеки: лише ті, що входять до ядра ESP32.
@@ -21,6 +30,8 @@
 
 #include <WebServer.h>
 #include "wifi_portal.h"
+#include "state_socket.h"
+#include "json_tools.h"
 #include "pages.h"
 
 WebServer        server(80);
@@ -32,6 +43,35 @@ void handleRoot() {
   server.send_P(200, "text/html; charset=utf-8", HOME_PAGE);
 }
 
+/*
+  Приклад: лампа, якою керують зі сторінки.
+
+  bool lampOn = false;
+
+  String lampJson() {
+    return String("{\"on\":") + (lampOn ? "true" : "false") + "}";
+  }
+
+  // PUT /api/lamp {"on":true} — дія користувача
+  void handleLampPut() {
+    bool on;
+    if (!jsonGetBool(server.arg("plain"), "on", on)) {
+      server.send(400, "application/json", "{\"error\":\"body must be {\\\"on\\\":true|false}\"}");
+      return;
+    }
+    lampOn = on;
+    digitalWrite(LAMP_PIN, on ? HIGH : LOW);
+    statePublish("lamp", lampJson());            // новий стан — усім відкритим сторінкам
+    server.send(200, "application/json", lampJson());
+  }
+
+  У setup():  statePublish("lamp", lampJson());                  // початковий стан
+              server.on("/api/lamp", HTTP_PUT, handleLampPut);
+  На сторінці (див. pages.h): deviceState.on('lamp', ...) і fetch('/api/lamp', {method: 'PUT', ...}).
+  Адреса з номером: #include <uri/UriBraces.h>, server.on(UriBraces("/api/leds/{}"), HTTP_PUT, ...),
+  номер — server.pathArg(0); немає такого — відповідь 404.
+*/
+
 void setup() {
   Serial.begin(115200);
   Serial.println();
@@ -40,18 +80,19 @@ void setup() {
   wifiConfig.deviceName = "WebUiStarter";         // назва на сторінках
   wifiConfig.apSsid     = "WebUiStarter-Setup";   // мережа налаштування
   wifiConfig.hostname   = "webuistarter";         // http://webuistarter.local
-  wifiPortalBegin(server, wifiConfig);
+  wifiPortalBegin(server, wifiConfig);            // Wi-Fi і канал стану
 
   server.on("/", HTTP_GET, handleRoot);
-  // server.on("/api/...", HTTP_POST, handleSomething);   // адреси проєкту
+  // statePublish("lamp", lampJson());                    // початковий стан тем проєкту
+  // server.on("/api/lamp", HTTP_PUT, handleLampPut);     // дії користувача — REST API
   server.begin();
 }
 
 void loop() {
-  wifiPortalLoop();
-  server.handleClient();
+  wifiPortalLoop();          // Wi-Fi і канал стану
+  server.handleClient();     // сторінки і REST API
 
-  // ... логіка проєкту ...
+  // ... логіка проєкту; змінився стан — statePublish(...) ...
 
   delay(2);   // даємо попрацювати фоновим задачам Wi-Fi
 }
