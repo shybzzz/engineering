@@ -1,26 +1,12 @@
-#pragma once
-#include <Arduino.h>
-
-// Веб-частина модуля wifi_portal. Зберігається у флеш-пам'яті (PROGMEM).
-
-// ---------------------------------------------------------------------------
-//  Панель Wi-Fi (GET /wifi/panel.js) — вбудовується у сторінки проєкту:
-//
-//    <span id="wifi-button"></span>          де стояти кнопці (зазвичай у шапці)
-//    <div id="wifi-panel"></div>             де розгортатись панелі
-//    <script src="/wifi/panel.js"></script>  наприкінці <body>
-//
-//  Є зв'язок із домашньою мережею — панель згорнута в кнопку і не займає
-//  місця; натиск на кнопку розгортає її. Зв'язку немає — панель розгорнута.
-//  Кольори панель бере зі змінних сторінки --bg, --card, --text, --muted,
-//  --line, --accent, --on-accent, --danger, --danger-bg (якщо вони задані).
-//  Елементи з data-wifi="name|ssid|ip|host|ap" панель заповнює сама.
-//
-//  Стан Wi-Fi панель не перепитує: він приходить каналом стану (/state.js,
-//  теми "hello", "wifi", "wifi-networks"). Дії користувача — запити до
-//  /api/wifi/... (опис — у wifi_portal.h).
-// ---------------------------------------------------------------------------
-const char WIFI_PORTAL_JS[] PROGMEM = R"WPJS((function () {
+// Панель Wi-Fi (GET /wifi/panel.js) — частина модуля wifi_portal, не редагуй.
+// Сторінка відводить їй місце: <span id="wifi-button"></span> (кнопка, зазвичай у шапці),
+// <div id="wifi-panel"></div> (де розгортатись) і підключає цей скрипт наприкінці <body>.
+// Є зв'язок із домашньою мережею — панель згорнута в кнопку; немає — розгорнута.
+// Кольори бере зі змінних сторінки --bg, --card, --text, --muted, --line, --accent,
+// --on-accent, --danger, --danger-bg; елементи з data-wifi="name|ssid|ip|host|ap" заповнює сама.
+// Стан Wi-Fi приходить каналом стану (/state.js: теми "hello", "wifi", "wifi-networks"),
+// дії користувача — запити до /api/wifi/... (опис — у wifi_portal.h).
+(function () {
 'use strict';
 
 const panel = document.getElementById('wifi-panel');
@@ -466,46 +452,3 @@ if (window.deviceState) {
   document.head.appendChild(script);
 }
 })();
-)WPJS";
-
-// ---------------------------------------------------------------------------
-//  Окрема сторінка Wi-Fi (GET /wifi) — та сама панель, завжди розгорнута.
-//  Її ж модуль показує на "/", якщо проєкт не має власної головної сторінки.
-// ---------------------------------------------------------------------------
-const char WIFI_PORTAL_PAGE[] PROGMEM = R"HTML(<!DOCTYPE html>
-<html lang="uk">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wi-Fi</title>
-<style>
-:root{--bg:#eef1f4;--text:#1b2530;--muted:#66758a;--accent:#178a4c}
-@media (prefers-color-scheme:dark){:root{--bg:#10151b;--text:#e7ecf1;--muted:#93a2b3;--accent:#2fb36a}}
-body{margin:0;background:var(--bg);color:var(--text);font:17px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
-main{max-width:460px;margin:0 auto;padding:24px 16px 40px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
-h1{margin:0;font-size:22px;line-height:1.2;overflow-wrap:anywhere}
-header p{margin:2px 0 0;color:var(--muted);font-size:15px}
-a{color:var(--accent)}
-</style>
-</head>
-<body>
-<main>
-  <header>
-    <div>
-      <h1 data-wifi="name">Пристрій</h1>
-      <p>Підключення до Wi-Fi</p>
-    </div>
-    <span id="wifi-button"></span>
-  </header>
-  <div id="wifi-panel" data-open></div>
-  <p id="home"><a href="/">← На головну</a></p>
-</main>
-<script>
-// На "/" цю сторінку показують, коли іншої головної немає, — тоді посилання зайве.
-if (location.pathname === '/') document.getElementById('home').hidden = true;
-</script>
-<script src="/wifi/panel.js"></script>
-</body>
-</html>
-)HTML";

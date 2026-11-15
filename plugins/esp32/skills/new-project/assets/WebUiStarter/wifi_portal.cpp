@@ -9,7 +9,7 @@
 
 #include "json_tools.h"
 #include "state_socket.h"
-#include "wifi_portal_page.h"
+#include "web_pages.h"     // сторінки з теки web/, стиснуті gzip (tools/pack-web.js)
 
 namespace {
 
@@ -296,14 +296,12 @@ void sendJson(int code, const String& json) {
 
 // GET /wifi — окрема сторінка Wi-Fi (та сама панель, завжди розгорнута)
 void handlePage() {
-  server->sendHeader("Cache-Control", "no-store");
-  server->send_P(200, "text/html; charset=utf-8", WIFI_PORTAL_PAGE);
+  webSend(*server, WEB_WIFI_HTML);          // web/wifi.html
 }
 
 // GET /wifi/panel.js — панель Wi-Fi, яку підключають сторінки проєкту
 void handleScript() {
-  server->sendHeader("Cache-Control", "no-store");
-  server->send_P(200, "application/javascript; charset=utf-8", WIFI_PORTAL_JS);
+  webSend(*server, WEB_WIFI_PANEL_JS);      // web/wifi-panel.js
 }
 
 // Стан Wi-Fi — тема "wifi" каналу стану і відповідь GET /api/wifi

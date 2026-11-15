@@ -93,8 +93,15 @@
       server.handleClient();
     }
 
-  Файли модуля: wifi_portal.h, wifi_portal.cpp, wifi_portal_page.h, а також
-  state_socket.h, state_socket.cpp (канал стану) і json_tools.h (JSON).
+  Файли модуля: wifi_portal.h, wifi_portal.cpp, state_socket.h,
+  state_socket.cpp (канал стану), json_tools.h (JSON), сторінки
+  web/wifi.html, web/wifi-panel.js, web/state.js і пакувальник
+  tools/pack-web.js.
+
+  Сторінки (і модуля, і проєкту) лежать файлами в теці web/. Пристрій віддає
+  їх стиснутими gzip: скрипт tools/pack-web.js перетворює теку web/ на
+  web_pages.h, а webSend() звідти додає заголовок Content-Encoding: gzip.
+  Після кожної зміни у web/ — "node tools/pack-web.js", і лише тоді збирати.
 */
 
 #pragma once

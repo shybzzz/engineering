@@ -54,7 +54,7 @@
 #include <Arduino.h>
 #include <WebServer.h>
 
-// Запускає канал і додає до веб-сервера адресу /state.js.
+// Запускає канал і додає до веб-сервера адресу /state.js (скрипт — web/state.js).
 // Модуль wifi_portal викликає це сам.
 void stateSocketBegin(WebServer& server);
 
