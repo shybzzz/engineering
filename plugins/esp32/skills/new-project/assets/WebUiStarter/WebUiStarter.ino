@@ -6,7 +6,8 @@
   - Wi-Fi: власна мережа налаштування, вибір домашньої мережі зі сторінки,
     збереження і автопідключення — усе це робить модуль wifi_portal
     (опис — у wifi_portal.h; файли wifi_portal.* змінювати не треба).
-  - Головна сторінка за адресою пристрою в домашній мережі (pages.h).
+  - Головна сторінка (pages.h) з панеллю Wi-Fi: поки є зв'язок із домашньою
+    мережею, панель згорнута в кнопку і місце на сторінці віддане вмісту.
 
   Що додавати
   -----------
@@ -25,14 +26,8 @@
 WebServer        server(80);
 WifiPortalConfig wifiConfig;
 
-// GET / — головна сторінка проєкту
+// GET / — головна сторінка проєкту (однакова в домашній мережі та в мережі налаштування)
 void handleRoot() {
-  if (wifiPortalFromSetupNetwork()) {
-    // Через мережу налаштування показуємо сторінку Wi-Fi.
-    server.sendHeader("Location", "/wifi", true);
-    server.send(302, "text/plain", "");
-    return;
-  }
   server.sendHeader("Cache-Control", "no-store");
   server.send_P(200, "text/html; charset=utf-8", HOME_PAGE);
 }

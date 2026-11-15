@@ -117,7 +117,7 @@ void startSetupNetwork() {
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(53, "*", WiFi.softAPIP());
 
-  Serial.printf("Мережа налаштування \"%s\" працює. Сторінка: http://%s/wifi\n",
+  Serial.printf("Мережа налаштування \"%s\" працює. Сторінка: http://%s/\n",
                 cfg.apSsid, WiFi.softAPIP().toString().c_str());
 }
 
@@ -229,15 +229,16 @@ void sendJson(int code, const String& json) {
   server->send(code, "application/json", json);
 }
 
-// GET /wifi — сторінка налаштування (лише через мережу налаштування)
+// GET /wifi — окрема сторінка Wi-Fi (та сама панель, завжди розгорнута)
 void handlePage() {
-  if (!wifiPortalFromSetupNetwork()) {
-    server->sendHeader("Location", "/", true);
-    server->send(302, "text/plain", "");
-    return;
-  }
   server->sendHeader("Cache-Control", "no-store");
   server->send_P(200, "text/html; charset=utf-8", WIFI_PORTAL_PAGE);
+}
+
+// GET /wifi/panel.js — панель Wi-Fi, яку підключають сторінки проєкту
+void handleScript() {
+  server->sendHeader("Cache-Control", "no-store");
+  server->send_P(200, "application/javascript; charset=utf-8", WIFI_PORTAL_JS);
 }
 
 void startScan() {
@@ -311,14 +312,18 @@ void handleStatus() {
   if (isOnline()) json += WiFi.localIP().toString();
   json += "\",\"host\":\"" + wifiPortalJsonEscape(cfg.hostname);
   json += "\",\"ap\":\"" + wifiPortalJsonEscape(cfg.apSsid);
+  json += "\",\"apIp\":\"" + WiFi.softAPIP().toString();
   json += "\",\"name\":\"" + wifiPortalJsonEscape(cfg.deviceName);
   json += "\",\"error\":\"";
   if (connState == CONN_FAILED) json += attemptError;
-  json += "\"}";
+  json += "\",\"setup\":";    // чи прийшов цей запит через мережу налаштування
+  json += wifiPortalFromSetupNetwork() ? "true" : "false";
+  json += '}';
   sendJson(200, json);
 }
 
 void handleNotFound() {
+  if (server->uri() == "/") { handlePage(); return; }   // проєкт не має головної сторінки
   if (wifiPortalHandleCaptive()) return;
   server->send(404, "text/plain; charset=utf-8", "Сторінку не знайдено");
 }
@@ -381,6 +386,7 @@ void wifiPortalBegin(WebServer& webServer, const WifiPortalConfig& config) {
   }
 
   server->on("/wifi", HTTP_GET, handlePage);
+  server->on("/wifi/panel.js", HTTP_GET, handleScript);
   server->on("/wifi/scan", HTTP_GET, handleScan);
   server->on("/wifi/connect", HTTP_POST, handleConnect);
   server->on("/wifi/status", HTTP_GET, handleStatus);
@@ -406,10 +412,11 @@ bool wifiPortalFromSetupNetwork() {
 
 bool wifiPortalHandleCaptive() {
   if (!wifiPortalFromSetupNetwork()) return false;
+  if (server->uri() == "/") return false;    // головної сторінки немає — нема куди перенаправляти
 
   // Планшет перевіряє, чи є інтернет, звертаючись до різних сайтів.
-  // Перенаправляємо все на сторінку налаштування — і вона відкривається сама.
-  server->sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/wifi", true);
+  // Перенаправляємо все на головну сторінку пристрою — і вона відкривається сама.
+  server->sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
   server->send(302, "text/plain", "");
   return true;
 }
