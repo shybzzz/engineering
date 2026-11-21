@@ -1,6 +1,6 @@
 ---
 name: printable-3d-model
-description: Design and generate 3D models for FDM printing (STL/STEP/3MF) from code — accessories for existing objects (trays, boxes, stands, lids), parametric parts with engraved text/logos, and multi-part printed mechanisms (carriages, guides, wheels, brackets) built with a parametric FreeCAD generator; manifold checks, support-free design rules, assemblability, fit-test coupons, previews and slicer hand-off. Use when the user asks to "make/create a 3D model for printing", "generate an STL", "make a tray/box/stand for …", "prepare for printing", "measure this STL", "why does the slicer say non-manifold", "will it fit on the bed", "the printed part is too tight/loose/rubs/needs supports", or when STL/3MF files must be inspected, scaled or arranged without mesh libraries. Ukrainian triggers: «зроби/створи 3D-модель для друку», «згенеруй STL», «зроби лоток/бокс/підставку під …», «підготуй до друку», «виміряй STL», «чому non-manifold», «чи влізе на столик», «деталь туга/болтається/треться/потребує підтримок».
+description: Design and generate 3D models for FDM printing (STL/STEP/3MF) from code — accessories for existing objects (trays, boxes, stands, lids), parametric parts with engraved text/logos, and multi-part printed mechanisms (carriages, guides, wheels, brackets, holders with a sliding key) built with a parametric FreeCAD generator, or delivered as a native FreeCAD document (PartDesign + Spreadsheet) the owner edits in the GUI; manifold checks, support-free design rules (also for parts printed standing on an end), assemblability, fit-test coupons, previews, dimensioned sections and slicer hand-off. Use when the user asks to "make/create a 3D model for printing", "generate an STL", "make a tray/box/stand for …", "make a parametric FreeCAD model", "make the next variant of the model", "prepare for printing", "measure this STL/STEP", "why does the slicer say non-manifold", "will it fit on the bed", "the printed part is too tight/loose/rubs/needs supports", "this overhang will not print", or when STL/STEP/3MF/FCStd files must be inspected, scaled or arranged without mesh libraries. Ukrainian triggers: «зроби/створи 3D-модель для друку», «згенеруй STL», «зроби лоток/бокс/підставку під …», «зроби параметричну модель у FreeCAD», «створи наступний варіант моделі», «підготуй до друку», «виміряй STL», «чому non-manifold», «чи влізе на столик», «деталь туга/болтається/треться/потребує підтримок», «тут нависання, без підтримок не надрукується».
 ---
 
 # Printable 3D model: from measurement to a file the slicer accepts
@@ -26,15 +26,26 @@ next to this file in `scripts/`:
 - `scripts/fc_svg.py` — SVG logo → FreeCAD solid for a deboss/emboss without `importSVG` (which
   fails headless on traced paths): path parser, holes by nesting, stroke thickening for line art
   (`min_stroke`), `spark_mark()`, `place_on_plane()` for leaning faces. Self-test: `python.exe -B fc_svg.py`.
+- `scripts/fc_pd.py` — route C helpers: a Spreadsheet of inputs + derived formulas (`start`), a sketch
+  builder that binds every vertex to aliases (`SB.loop/circle/arrow/flared_hole/rounded_rim`),
+  `pad/pocket/groove`, datum planes along a slope (`tilted_plane`, `slope_plane`), frozen outlines
+  (`static_wires`), `set_aliases` + `problems` for variant tests, `save`. Self-test: `python.exe -B fc_pd.py`.
+- `scripts/fc_overhang.py` — lists the faces of an FCStd body or a STEP that overhang for a given "up"
+  direction (`--up 0,1,0 --limit 44`); also `overhangs(shape, up, limit)`. Self-test: no arguments.
+- `scripts/fc_section.py` — `section()`: cut shapes with any plane and draw the cut on a millimetre
+  grid, mating parts in contrasting colours — the picture users mark their changes on.
+- `scripts/fc_dump.py` — FCStd → `params` / `formulas` / bodies JSON + one STL per body; STEP → every
+  face (type, normal, radius, axis, bbox) as JSON + STL, for parts that exist only as STEP.
 
-Two generation routes — pick one up front:
+Three generation routes — pick one up front:
 
 | Route | When | Tooling |
 |---|---|---|
 | **A. Mesh from code** | one-off accessories: trays, boxes, stands, lids, plaques with engraving | Python stdlib + `shapely` (+ `fontTools`), `mesh_kit.py`, STL out |
 | **B. Parametric B-rep generator** | mechanisms of several interacting printed parts that are iterated (print → measure → change a parameter → regenerate → reprint), parts that must mate with existing hardware (bearings, screws, nuts, ropes) or with an existing printed set | FreeCAD ≥ 1.0 headless Python, `params.json` + builders + `derive()`, STEP out (section 7) |
+| **C. Native parametric FCStd** | the deliverable is a FreeCAD document the owner opens in the GUI and changes through a Spreadsheet (a part or a small assembly kept in a project folder, often with a legacy model it must stay compatible with) | FreeCAD ≥ 1.0 headless, `fc_pd.py`: Spreadsheet aliases + fully constrained sketches + PartDesign features, one generator per model (section 7a) |
 
-The design rules (sections 2–5) and the checks (section 8) apply to both.
+The design rules (sections 2–5) and the checks (section 8) apply to all three.
 
 ## 0. Pin down the inputs first
 
@@ -78,6 +89,16 @@ Before writing code, establish and record in a `PARAMS` block (route A) or
   envelope** of it (a few boxes/cylinders in `params.json`) for everyday
   interference checks — re-measure the envelope when the product model changes,
   and check big changes against the real B-rep, not only the envelope.
+- **A part that exists only as STEP** (the design being replaced, no source file): dump every
+  face with `fc_dump.py` and read plane positions, radii and hole axes from the list, then
+  confirm each conclusion with a section (`fc_section.py`) and each claimed fit with a boolean
+  (old key in old holder: does it really seat? where does it stop?). Keep "measured from the
+  model" apart from "the user said" (purpose of a hole, how it is mounted) in the notes. What
+  mates with the outside world (mounting holes, the outline that drops into an opening) is
+  reused, not redrawn — prove it with a boolean difference against the old solid outside the
+  changed zone.
+- `BoundBox` is loose on rounded faces (0.2–0.3 mm on a torus) and a round bottom has no
+  vertex at its lowest point: take sizes and extremes from `shape.tessellate(0.01)`.
 
 ## 2. Design rules for FDM — support-free by design
 
@@ -135,6 +156,41 @@ Other FDM rules:
 - **Materials:** PETG (or ASA) for structural parts, 0.2 mm layers, 3 perimeters,
   40 % infill; wheels/rollers 100 % or ≥ 60 %; TPU only for sliding bushings.
   Infill lowers effective permittivity and absorbs moisture — matters for RF parts.
+- **The owner's line width is the design unit** when they name one (e.g. 0.42 mm): thin
+  walls, ribs and the plastic left around engraving are whole multiples of it, never thinner
+  than one line. Text on a narrow face: ≥ 2 lines of plastic above and below the letters,
+  ≥ 1 line between neighbouring letters, strokes ≥ 1 line — scale the word down and space
+  the letters apart rather than break these, and centre the word on the face.
+
+### Parts printed standing on an end
+
+A plate-like part is often printed standing on one end face (a mark such as "Front" up).
+Record the orientation as the **model direction that points up** and judge every face that
+looks towards the bed:
+
+- Every face looking down is **≥ 45° from the bed plane**. Check each part in its own
+  orientation with `fc_overhang.py --up <dir>` — the mate that is printed lying flat too.
+  Faces designed at exactly 45° sit on the threshold: run with `--limit 44`. Rows to expect
+  and accept: ceilings of small horizontal holes, and roundings tangent to the bed (the
+  first 0.29·R of their height). Anything else gets redesigned, not explained away.
+- **A quarter-round that ends parallel to the bed is an overhang**: its last 45° reach
+  0.71·R sideways within 0.29·R of height. Replace it with a straight slope (≥ 45° from the
+  bed, e.g. 55°) blended into both neighbours by arcs — drawn as arcs in the profile sketch.
+- **The end of a slot or pocket that faces the bed is a bridge, and with solid material
+  resting on it it will not print.** Close it with a pointed arch: two flanks at 45° that
+  meet on the axis. A round arch does not help — its crown is flat again. The mating part
+  takes the same flanks on its nose with a truncated tip (≥ 1 mm flat, 0.5 mm short of the
+  apex): the flanks become the stop faces, and on a mate printed lying flat they are plain
+  45° chamfers rising from the bed.
+- **A wall leaning over the bed** (the back of a pocket in an inclined block): make the
+  block solid down to the base, or give its back a slope ≥ 45° from the bed that lands on
+  the base with a concave arc. Blocks grow out of a plate with concave arcs on every side
+  the owner will see; none of them may become flatter than 45° in the print orientation.
+- **A recess on a face that is vertical in the print orientation** (an arrow or engraving on
+  the side of a part printed flat) has upper walls that are ceilings as deep as the recess:
+  keep the depth ≤ one line width (0.4–0.5 mm) or give the recess a top no flatter than 45°.
+- A slicer screenshot of a layer the owner calls unprintable is a defect report: find the
+  face with `fc_overhang.py`, change the geometry, re-run the check and show the same region.
 
 ### Print-in-place flat mechanisms (hinged plates, kickstands, folding stands)
 
@@ -204,6 +260,45 @@ part** (wheel, bearing, bushing, nut, screw):
 - never close a slot that a part enters sideways;
 - say it explicitly in the answer/report whenever a geometry change touches an
   insertion path — the user reads the models closely and expects this reasoning.
+
+### Sliding inserts: keys, pins, latches in a guide
+
+- **Insertion through an opening in whatever the part is mounted on is a layout constraint,
+  not an afterthought.** An insert entering at the guide's angle must clear the far edge of
+  that opening over the full thickness of the mounting plate; derive the guide's position
+  from it (`guide = min(edge_of_plate_opening, edge_of_own_rim) − clearance − insert
+  thickness`) so the layout follows the plate thickness. If that thickness is unknown,
+  assume one, make it a parameter and state what changes for the other plausible values.
+- **A rounded end of an opening is shorter for a wide part**: a part of width b reaches only
+  `centre + sqrt(R² − (b/2)²)`, not the end of the opening. Use the real corner geometry in
+  the clearance formula and test with plates of several thicknesses (the first one that
+  collides is the limit to report).
+- **Stop faces must be roughly square to the motion.** In a shallow guide (≈ 15°) a bar
+  drawn against a surface nearly parallel to the travel wedges like a taper. Stop on an end
+  face (nose against the end of its slot) and leave 0.3 mm to the parallel surface; name the
+  stop faces in the answer.
+- **Prove the stop both ways**: common volume 0 in place *and* > 0 when the insert is pushed
+  0.3 mm further (otherwise the "stop" is a gap), and 0 at every step of the whole
+  withdrawal path.
+- **Pull direction against friction**: an insert in a guide inclined by α to the mounting
+  face self-locks against a pull square to that face when μ > tan α (15° → 0.27, 30° → 0.58).
+  Say which way to pull, or put the handle in line with the guide.
+- **A block on an incline has a best angle**: height = base + L·sin α + H·cos α, plus
+  constraints that switch on as α drops (a floor that must stay under the block, a cut that
+  must not break through). Tabulate the height for five or six angles before choosing —
+  "shallower is lower" stops being true below some angle — and tabulate the other quantity
+  the owner cares about (where the insert's window lands) next to it: such requests are
+  trade-offs between two wishes.
+- **Lock holes** (wire, split pin) through insert and body: check with a gauge cylinder a
+  hair under the hole (Ø2.98 for Ø3) through everything — common volume 0. A tab that only
+  carries such a hole is exactly as long as hole + wall; round the hole mouths (R0.5) where a
+  wire bears.
+- **Direction marks**: recessed arrows (0.5 mm deep, ≈ 8 long, head 3.5 × 4.6, shaft 1.7) on
+  both broad faces of the insert and on the guide where it shows through the entry window,
+  all pointing the way the insert goes in. Narrower than the mating face so the insert rides
+  on both sides of the recess; never under a contact zone (a lever, a seal); and render the
+  view the person will really have (from below, insert pulled out) to see that each mark is
+  visible — one placed in a notch between two features was not.
 
 ## 4. Fits, clearances and the fit-test coupon
 
@@ -409,6 +504,33 @@ FreeCAD gotchas:
   builds are fine only into different output folders.
 - Assembly previews with a pure-numpy rasteriser take ~10 s — `--no-preview` for
   quick numeric iterations.
+- A single script can still be run by the console executable in a non-ASCII folder when it
+  is `exec`-ed with relative paths from the project root:
+  `FreeCADCmd -c "import sys; sys.argv=['x', r'in.FCStd', r'out']; exec(open(r'tools\x.py', encoding='utf-8').read())"`.
+  `__file__` is undefined there (import siblings via `sys.path.insert(0, os.path.abspath("tools"))`).
+  Use it for project tools that collaborators run with nothing but `FreeCADCmd` on PATH.
+- **`Import.export([obj])` drops the Placement of a single top-level object**, and
+  `shape.rotate()` / `translate()` only change the Placement: a part "laid flat" that way
+  lands in the STEP in its original position. Bake the transform with
+  `shape.transformed(matrix, True)` or write with `shape.exportStep()` (`fc_lib.export_step`),
+  and read the written file back (section 8).
+
+## 7a. Route C — native parametric FCStd (PartDesign + Spreadsheet)
+
+**Read `references/native-fcstd.md` before writing or changing such a generator.** In short:
+
+- every dimension is a Spreadsheet alias (inputs on top, derived formulas below, signed
+  coordinates prefixed `y_` / `z_` / `u_` / `w_`); layout rules are formulas (`min(a; b)`),
+  so the model re-lays itself out when the owner changes an input;
+- every sketch vertex is bound to aliases by `DistanceX` / `DistanceY` from the origin
+  (`fc_pd.SB`), DoF 0; bodies are modelled in the assembled position in one frame;
+- fillets are arcs in profile sketches or revolved / pocketed cuts, not Fillet features;
+  profiles dip 1 mm into what they are tangent to; cuts never end exactly on a face;
+- the generator overwrites its FCStd: once the owner may have edited the file in the GUI,
+  change the Spreadsheet instead (`set_aliases`); a "next variant" is a new FCStd with its
+  own generator, the previous model stays untouched;
+- a variant sweep (`set_aliases` → `problems()` → fit checks) over every input proves the
+  document survives the owner's edits; record what passed and the first value that breaks.
 
 ## 8. Verification — mandatory before handing over a file
 
@@ -431,7 +553,15 @@ FreeCAD gotchas:
    zero; expected contacts (friction ridges, click overlaps) are named with their magnitude.
 7. Fillet log: every requested edge group filleted, radii listed; close-ups of every changed region
    read, not just generated.
-Report honestly: numbers from the check output, not "should be fine".
+8. **Every exported file is read back** (STEP / STL): tight size, lowest z and volume equal
+   the intended shape *in the intended orientation*. Numbers printed from the in-memory shape
+   prove nothing about the file — a key documented as "exported lying flat" sat in its STEP
+   in the assembled position until a read-back caught it.
+9. `fc_overhang.py` on every part in its print orientation: only the expected rows remain
+   (section 2). Sliding inserts: the stop is proven both ways and the withdrawal path is
+   clear (section 3). Route C: the variant sweep passed and its limits are written down.
+Report honestly: numbers from the check output, not "should be fine". When a later check
+shows that something already handed over was wrong, say so, fix it and name the files.
 
 ## 9. Previews and documentation
 
@@ -441,6 +571,17 @@ Report honestly: numbers from the check output, not "should be fine".
   sort, Lambert shading). Read the PNGs after every geometry change. Labels in
   English if the file goes to Thingiverse/Printables; the build report in the
   collaborators' language.
+- **Sections on a millimetre grid** (`fc_section.py`) are the working drawing of a
+  conversation about fits and profiles: one per plane that matters (the symmetry plane, the
+  middle of each mating feature, across an inclined guide, a plane just under a plate),
+  mating part in a contrasting colour, the plane and the axes named in the title and in the
+  file name (`10_section_x0.png`, `15_section_z-1.png`). Users draw the change they want
+  straight on them — keep the names and numbering stable between iterations so a marked
+  picture can be matched to its plane, and regenerate the whole set after every change.
+- Views: number the files and caption them with what to look at. Do not aim the camera
+  exactly along an axis when coplanar faces of two bodies are in frame (z-fighting); a view
+  from below needs its light from below, or the underside is black; add the view the person
+  has when using the part (insert pulled out, seen from where the hand is).
 - Maker's marks from SVG (the user's logo, a generator mark): `fc_svg.py`, deboss 0.5–0.6 mm into a
   visible flat or leaning face (a lip's front, a rail top), never the bed face of a thin floor. Traced
   line art has strokes of 0.05–0.1 mm at badge size: thicken to ≥ 0.45 mm (`min_stroke`) or the slicer
@@ -488,6 +629,17 @@ Report honestly: numbers from the check output, not "should be fine".
    Do not substitute a different feature that solves the same problem — it will be reverted, and the
    substitution hides the fact that the original idea was not understood.
 9. "Revert this change" means the whole last step, including things added "while at it".
+10. **A "what if" question gets numbers, not a rebuild**: sweep the parameter on a scratch
+    copy and answer with a table (what moves, by how much per millimetre, where it stops
+    working and why). The project model changes only when the user asks for the change.
+11. **Choices the request left open are made, built and listed** — not silently, and not as
+    a blocking question when the work can proceed: "both sides" read as the two broad faces,
+    an assumed plate thickness, a block moved to satisfy a stated condition. Put each one at
+    the end of the answer and in the project notes as "not yet confirmed", with the parameter
+    that undoes it.
+12. Conditions the user states for a variant ("the lock hole stays", "the window as far back
+    as possible") become formulas or checks in the model, and the answer reports each one
+    with its number and with what limits it.
 
 ## Environment pitfalls (Windows)
 
@@ -505,3 +657,8 @@ Report honestly: numbers from the check output, not "should be fine".
 - Long bash heredocs (≳80 lines of Python) fail in Claude Code's bash tool with "unexpected EOF while
   looking for matching quote": write the patch / diagnostic script to the scratchpad with the Write
   tool and run it with a path argument.
+- Boolean-heavy sweeps (20–30 parameter variants of an assembly) outlast a foreground tool call: run
+  them in the background, print one line per variant, and tell the user the result when it arrives.
+- Project folders on a shared cloud drive are opened on other machines under other drive letters:
+  no absolute paths in anything written there (docs, scripts, commands) — tool names on PATH and
+  `<tmp>` placeholders; temp STL / JSON stay outside the folder.
