@@ -1,19 +1,82 @@
 ---
 name: ua-docs-style
-description: Formatting and style conventions for Ukrainian engineering/research documents written in the style of an academic article (Markdown drafts with LaTeX math and their Confluence ports) — structure, terminology, numbered formulas/figures/tables, cross-referencing, and verified references with DOIs. Use whenever creating, editing, extending, or reviewing such a document (investigation reports, technical notes, method descriptions in Ukrainian), or when the user asks «оформи за стилем», «перевір документ на відповідність стилю», «додай формулу/рисунок/таблицю/джерело». Every modification must preserve the article structure and the numbering/cross-referencing system described here.
+description: Formatting and style conventions for Ukrainian engineering/research documents written in the style of an academic article (Claude Docs, Markdown drafts with LaTeX math, Confluence pages) — structure, terminology, numbered formulas/figures/tables, cross-referencing, verified references with DOIs — plus the default workflow: write the document as a Claude Doc, the user comments in it, Claude answers/fixes, and only then the project's own documentation is updated. Use whenever creating, editing, extending, or reviewing such a document (investigation reports, technical notes, method descriptions in Ukrainian), or when the user asks «оформи за стилем», «перевір документ на відповідність стилю», «додай формулу/рисунок/таблицю/джерело», «створи документ у Claude Docs», «перенеси звіт у клод док», «прочитай коментарі», «я прокоментував документ», «документ готовий, онови документацію». Every modification must preserve the article structure and the numbering/cross-referencing system described here.
 ---
 
 # Ukrainian docs — academic style conventions
 
 Applies to every human-facing Ukrainian engineering document that is meant to
-be read as a technical article: Markdown drafts (`*_ua.md` or similar) and the
-same documents published to Confluence. When a document exists both as an md
-draft and as a Confluence page, the project decides which is the source of
-truth — ask or check the project's CLAUDE.md/skills; by default a published
-Confluence page wins over a stale draft.
+be read as a technical article: Claude Docs, Markdown drafts (`*_ua.md` or
+similar) and the same documents published to Confluence. When a document
+exists both as an md draft and as a Confluence page, the project decides which
+is the source of truth — ask or check the project's CLAUDE.md/skills; by
+default a published Confluence page wins over a stale draft. While a document
+is under review in a Claude Doc (workflow below), the Claude Doc is the working
+copy.
 
 Does NOT apply to internal working notes (`plan.md`-type files), generated
 CLAUDE.md files, or auto-generated result reports.
+
+## Default workflow: write in a Claude Doc, review by comments
+
+Use this sequence whenever the session has the Claude Docs connector and the
+user has not asked for another medium (an md file only, Confluence only). If
+the connector is absent, say so and fall back to an md draft.
+
+1. **Create the document as a Claude Doc**, following every convention of this
+   skill (structure, numbering, terminology, references) and «Claude Docs
+   specifics» below, and give the user the link. If the document already
+   exists as an md draft or a Confluence page, port it without changing its
+   content.
+2. **The user reads it and leaves comments and questions in the doc.** Wait for
+   them; do not keep polishing the document on your own meanwhile.
+3. **On the user's signal** («прочитай коментарі», «я прокоментував», or a
+   comment sent to Claude from the doc) read ALL comment threads of the doc in
+   one query and handle every one of them:
+   - a question → answer in its thread; if the question shows the text itself
+     was unclear, also improve the text and say so in the reply;
+   - a requested correction → make it in the doc and reply briefly with what
+     changed (the edit itself is visible in the doc — do not repeat it);
+   - something only the user can decide or supply → say so in the thread.
+   Keep numbering and cross-references consistent after every change (see
+   «When modifying»). Do not resolve threads the user wrote — they close them.
+   Report in chat: how many threads there were, what was changed, what is
+   still open. Steps 2–3 repeat until the user says the document is settled.
+4. **Only when the user says the document is settled** («все стало на свої
+   місця», «документ готовий») update the project's own documentation to match
+   the final doc: the md/Confluence counterpart of the document if the project
+   keeps one, the knowledge files Claude maintains there (CLAUDE.md findings,
+   skill baselines, indexes, memory) and every number or statement elsewhere
+   that the review changed. Until then the project files stay as they were —
+   do not propagate statements that are still under review. List in chat which
+   project files were updated.
+
+## Claude Docs specifics
+
+Mechanics (creating, filling, comments, uploads) follow the Claude Docs
+connector's own instructions — load them first. Fill the doc section by
+section (heading + body per call), all text first, images last. Style
+differences from an md draft:
+
+- **Inline math is not rendered.** Write it as plain Unicode text: θ ≈ 21,4°,
+  H·cos θ, Δτ, x₀, T_лог — real symbols (−, ·, ×, ≈, °), Unicode
+  sub/superscripts where they exist, an underscore otherwise. This covers
+  prose, table headers and figure captions.
+- **Displayed formulas** go into a ```` ```latex ```` code block of bare TeX
+  (no `$$`), numbered with `\tag{N}`; degree as `^\circ`, decimal comma
+  `{,}`, Cyrillic units inside `\text{…}`. The numbering and referencing
+  rules of «Math» are unchanged.
+- **Figures**: upload the image files to the doc, then place
+  `![Рис. N](blob/<id>)` directly above the italic caption paragraph
+  `*Рис. N. …*`. Same numbering and «referenced before it appears» rule.
+- **Tables**: pipe tables with the bold `**Табл. N.**` caption line above.
+- **Links**: relative links to project files do not resolve in a cloud doc —
+  keep the file name/path as inline code without a link; external URLs become
+  explicit links (`[url](url)`).
+- Add nothing the article structure does not have: no byline, date chip,
+  summary or «key takeaways» section.
+- When porting from md, these are changes of notation, not of content; tell
+  the user which ones were made.
 
 ## Confluence specifics
 
